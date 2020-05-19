@@ -4,6 +4,7 @@
 GLOBAL_LIST_EMPTY(overmap_tiles_uncontrolled) //This is any overmap sectors that are uncontrolled by any faction
 
 GLOBAL_LIST_EMPTY(overmap_spawn_near)
+GLOBAL_LIST_EMPTY(overmap_spawn_in)
 
 var/list/points_of_interest = list()
 
@@ -11,9 +12,12 @@ var/list/points_of_interest = list()
 	name = "map object"
 	icon = 'icons/obj/overmap.dmi'
 	icon_state = "object"
+	dir = 1
+	ai_access_level = 0
 	var/list/map_z = list()
 	var/list/map_z_data = list()
 	var/list/targeting_locations = list() // Format: "location" = list(TOP_LEFT_X,TOP_LEFT_Y,BOTTOM_RIGHT_X,BOTTOM_RIGHT_Y)
+	var/list/active_effects = list()
 	var/weapon_miss_chance = 0
 
 	//This is a list used by overmap projectiles to ensure they actually hit somewhere on the ship. This should be set so projectiles can narrowly miss, but not miss by much.
@@ -30,16 +34,20 @@ var/list/points_of_interest = list()
 	var/known = 1		//shows up on nav computers automatically
 	var/in_space = 1	//can be accessed via lucky EVA
 	var/block_slipspace = 0		//for planets with gravity wells etc
+	var/occupy_range = 0
 
 	var/list/hull_segments = list()
 	var/superstructure_failing = 0
 	var/list/connectors = list() //Used for docking umbilical type-items.
 	var/faction = "civilian" //The faction of this object, used by sectors and NPC ships (before being loaded in). Ships have an override
+	var/datum/faction/my_faction
+	var/slipspace_status = 0		//0: realspace, 1: slipspace but returning to system, 2: out of system
 
 	var/datum/targeting_datum/targeting_datum = new
 
 	var/glassed = 0
 	var/nuked = 0
+	var/demolished = 0
 
 	var/last_adminwarn_attack = 0
 
@@ -49,6 +57,10 @@ var/list/points_of_interest = list()
 	var/parent_area_type
 
 	var/list/overmap_spawn_near_me = list()	//type path of other overmap objects to spawn near this object
+	var/list/overmap_spawn_in_me = list()	//type path of other overmap objects to spawn inside this object
+
+	var/datum/pixel_transform/my_pixel_transform
+	var/list/my_observers = list()
 
 /obj/effect/overmap/New()
 	//this should already be named with a custom name by this point
@@ -70,8 +82,16 @@ var/list/points_of_interest = list()
 	for(var/entry in overmap_spawn_near_me)
 		GLOB.overmap_spawn_near[entry] = src
 
+	for(var/entry in overmap_spawn_in_me)
+		GLOB.overmap_spawn_in[entry] = src
+
 	setup_object()
 	generate_targetable_areas()
+
+	if(flagship)
+		GLOB.overmap_tiles_uncontrolled -= trange(28,src)
+	if(occupy_range)
+		GLOB.overmap_tiles_uncontrolled -= trange(occupy_range,src)
 
 	return INITIALIZE_HINT_LATELOAD
 
@@ -83,6 +103,97 @@ var/list/points_of_interest = list()
 			spawn_locs += t
 		src.forceMove(pick(spawn_locs))
 		GLOB.overmap_spawn_near -= src.type
+
+	summoning_me = GLOB.overmap_spawn_in[src.type]
+	if(summoning_me)
+		src.forceMove(summoning_me)
+		GLOB.overmap_spawn_in -= src.type
+
+	if(flagship && faction)
+		var/datum/faction/F = GLOB.factions_by_name[faction]
+		if(F)
+			F.flagship = src
+			F.get_flagship_name()	//update the archived name
+
+	if(base && faction)
+		var/datum/faction/F = GLOB.factions_by_name[faction]
+		if(F)
+			F.base = src
+			F.get_base_name()		//update the archived name
+
+	my_faction = GLOB.factions_by_name[faction]
+
+/obj/effect/overmap/proc/play_jump_sound(var/sound_loc_origin,var/sound)
+	var/list/mobs_to_sendsound = list()
+	mobs_to_sendsound += GLOB.mobs_in_sectors[src]
+	for(var/obj/effect/overmap/om in range(SLIPSPACE_JUMPSOUND_RANGE,sound_loc_origin))
+		mobs_to_sendsound |= GLOB.mobs_in_sectors[om]
+	for(var/mob/m in mobs_to_sendsound)
+		playsound(m,sound,100)
+
+/obj/effect/overmap/proc/send_jump_alert(var/alert_origin)
+	var/list/mobs_to_alert = list()
+	mobs_to_alert += GLOB.mobs_in_sectors[src]
+	for(var/obj/effect/overmap/om in range(SLIPSPACE_JUMP_ALERT_RANGE,alert_origin))
+		mobs_to_alert |= GLOB.mobs_in_sectors[om]
+	var/list/dirlist = list("north","south","n/a","east","northeast","southeast","n/a","west","northwest","southwest")
+	for(var/mob/m in mobs_to_alert)
+		var/dir_to_ship = get_dir(map_sectors["[m.z]"],alert_origin)
+		if(dir_to_ship != 0)
+			to_chat(m,"<span class = 'danger'>ALERT: Slipspace rupture detected to the [dirlist[dir_to_ship]]</span>")
+
+
+/obj/effect/overmap/proc/do_slipspace_exit_effects(var/exit_loc,var/sound)
+	var/obj/effect/overmap/ship/om_ship = src
+	if(istype(om_ship))
+		om_ship.speed = list(0,0)
+
+	var/headingdir = dir
+	var/turf/T = exit_loc
+	//Below code should flip the dirs.
+	T = get_step(T,headingdir)
+	headingdir = get_dir(T,exit_loc)
+	T = exit_loc
+	for(var/i=0, i<SLIPSPACE_PORTAL_DIST, i++)
+		T = get_step(T,headingdir)
+	new /obj/effect/slipspace_rupture(T)
+	if(sound)
+		play_jump_sound(exit_loc,sound)
+	send_jump_alert(exit_loc)
+	loc = T
+	walk_to(src,exit_loc,0,1,0)
+	spawn(SLIPSPACE_PORTAL_DIST)
+		walk(src,0)
+
+/obj/effect/overmap/proc/do_slipspace_enter_effects(var/sound)
+	//BELOW CODE STOLEN FROM CAEL'S IMPLEMENTATION OF THE SLIPSPACE EFFECTS, MODIFIED.//
+	var/obj/effect/overmap/ship/om_ship = src
+	if(istype(om_ship))
+		om_ship.speed = list(0,0)
+		om_ship.break_umbilicals()
+	//animate the slipspacejump
+	var/headingdir = dir
+	var/turf/T = loc
+	for(var/i=0, i<SLIPSPACE_PORTAL_DIST, i++)
+		T = get_step(T,headingdir)
+	new /obj/effect/slipspace_rupture(T)
+	if(sound)
+		play_jump_sound(T,sound)
+	//rapidly move into the portal
+	walk_to(src,T,0,1,0)
+	spawn(SLIPSPACE_PORTAL_DIST)
+		loc = null
+		walk_to(src,null)
+
+/obj/effect/overmap/proc/slipspace_to_location(var/turf/location,var/target_status,var/sound)
+	do_slipspace_exit_effects(location,sound)
+	if(!isnull(target_status))
+		slipspace_status = 0
+
+/obj/effect/overmap/proc/slipspace_to_nullspace(var/target_status,sound)
+	do_slipspace_enter_effects(sound)
+	if(!isnull(target_status))
+		slipspace_status = target_status
 
 /obj/effect/overmap/proc/generate_targetable_areas()
 	if(isnull(parent_area_type))
@@ -134,7 +245,8 @@ var/list/points_of_interest = list()
 	if(!GLOB.using_map.overmap_z && GLOB.using_map.use_overmap)
 		build_overmap()
 
-	map_z |= loc.z
+	if(!isnull(loc))
+		map_z |= loc.z
 	//map_z = GetConnectedZlevels(z)
 	//for(var/zlevel in map_z)
 	map_sectors["[z]"] = src
@@ -229,6 +341,7 @@ var/list/points_of_interest = list()
 	for(var/mob/player in GLOB.mobs_in_sectors[src])
 		player.dust()
 	loc = null
+
 	message_admins("NOTICE: Overmap object [src] has been destroyed. Please wait as it is deleted.")
 	log_admin("NOTICE: Overmap object [src] has been destroyed.")
 	sleep(10)//To allow the previous message to actually be seen
@@ -244,13 +357,21 @@ var/list/points_of_interest = list()
 		do_superstructure_fail()
 
 /obj/effect/overmap/process()
+	for(var/e in active_effects)
+		var/datum/overmap_effect/effect = e
+		if(!effect.process_effect())
+			active_effects -= src
+			qdel(effect)
 	if(!isnull(targeting_datum.current_target) && !(targeting_datum.current_target in range(src,7)))
 		targeting_datum.current_target = null
 		targeting_datum.targeted_location = "target lost"
 	if(superstructure_failing == -1)
 		return
-	if(superstructure_failing == 1)
-		//TODO: Special messages/other effects whilst the superstructure fails.
+	if(superstructure_failing == 1 && (world.time % 4) == 0)
+		if(hull_segments.len == 0)
+			return
+		var/obj/explode_at = pick(hull_segments)
+		explosion(explode_at.loc,1,2,3,5, adminlog = 0)
 		return
 	var/list/superstructure_strength = get_superstructure_strength()
 	if(isnull(superstructure_strength))
@@ -301,6 +422,9 @@ var/list/points_of_interest = list()
 	A.contents.Add(turfs)
 
 	GLOB.using_map.sealed_levels |= GLOB.using_map.overmap_z
+	if(GLOB.using_map.overmap_event_tokens > 0)
+		for(var/i = 0 to GLOB.using_map.overmap_event_tokens)
+			new /obj/effect/overmap/hazard/random
 
 	report_progress("Overmap build complete.")
 	shipmap_handler.max_z_cached = world.maxz

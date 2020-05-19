@@ -120,7 +120,10 @@
 		/decl/emote/visible/hug,
 		/decl/emote/visible/dap,
 		/decl/emote/visible/signal,
-		/decl/emote/visible/handshake
+		/decl/emote/visible/handshake,
+		/decl/emote/audible/species_sound/wort,
+		/decl/emote/audible/species_sound/need_weapon
+
 	)
 
 /mob/living/silicon/robot

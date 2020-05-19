@@ -65,6 +65,7 @@ for reference:
 	var/maxhealth = 100
 	var/material/material
 	flags = OBJ_CLIMBABLE
+	layer = TABLE_LAYER
 
 /obj/structure/barricade/New(var/newloc, var/material_name)
 	..(newloc)
@@ -135,7 +136,7 @@ for reference:
 /obj/structure/barricade/CanPass(atom/movable/mover, turf/target, height=0, air_group=0)//So bullets will fly over and stuff.
 	if(air_group || (height==0))
 		return 1
-	if(istype(mover) && mover.checkpass(PASSTABLE))
+	if(istype(mover) && (mover.checkpass(PASSTABLE) || mover.elevation != elevation))
 		return 1
 	else
 		return 0

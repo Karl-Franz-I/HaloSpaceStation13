@@ -58,5 +58,13 @@
 		/area/exoplanet,
 		/area/exoplanet/desert,
 		/area/exoplanet/grass,
-		/area/exoplanet/snow
+		/area/exoplanet/snow,
+		/area/shuttle/offsite_berth_transport,
+		/area/shuttle/innie_berth_transport,
+		/area/shuttle/innie_shuttle_transport,
+		/area/planets/Geminus/indoor/quest_instance,
+		/area/planets/Geminus/indoor/npc_factory,
+		/area/planets/Geminus/indoor,
+		/area/planets/Geminus,
+		/area/planets
 	)

@@ -25,3 +25,9 @@
 
 /datum/trade_category/weapon_cov
 	name = "weapon_cov"
+
+/datum/trade_category/organs
+	name = "organs"
+
+/datum/trade_category/weapon_fc
+	name = "weapons_fc"

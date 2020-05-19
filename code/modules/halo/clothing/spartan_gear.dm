@@ -23,15 +23,16 @@
 	item_state = "neuralboots"
 	force = 5
 	armor = list(melee = 40, bullet = 40, laser = 5, energy = 20, bomb = 50, bio = 0, rad = 0)
-	item_flags = NOSLIP
+	item_flags = STOPPRESSUREDAMAGE | THICKMATERIAL | AIRTIGHT
 	siemens_coefficient = 0.6
-	body_parts_covered = FEET|LEGS
+	body_parts_covered = FEET
 	can_hold_knife = 1
 	cold_protection = FEET
 	min_cold_protection_temperature = SHOE_MIN_COLD_PROTECTION_TEMPERATURE
 	heat_protection = FEET
 	max_heat_protection_temperature = SHOE_MAX_HEAT_PROTECTION_TEMPERATURE
 	species_restricted = list("Spartan")
+	stepsound = 'code/modules/halo/sounds/walk_sounds/marine_boots.ogg'
 
 /obj/item/clothing/gloves/spartan
 	name = "Mjolnir gloves"
@@ -40,6 +41,7 @@
 	icon_override = 'code/modules/halo/clothing/spartan_gear.dmi'
 	icon_state = "neuralgloves_obj"
 	item_state = "neuralgloves"
+	item_flags = STOPPRESSUREDAMAGE | THICKMATERIAL | AIRTIGHT
 	siemens_coefficient = 0
 	permeability_coefficient = 0.05
 	body_parts_covered = HANDS

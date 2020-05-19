@@ -16,7 +16,7 @@
 		)
 
 	var/obj/turret_contained = /obj/structure/turret
-	var/deploy_time = 15 //The time it takes to deploy the turret, in seconds.
+	var/deploy_time = 7 //The time it takes to deploy the turret, in seconds.
 
 /obj/item/turret_deploy_kit/attack_self(var/mob/user)
 	visible_message("<span class = 'danger'>[user] starts setting up a turret emplacement</span>")
@@ -39,3 +39,11 @@
 	item_state = "chaingunkit"
 
 	turret_contained = /obj/structure/turret/chaingun
+
+/obj/item/turret_deploy_kit/plasturret
+	name = "Type-52 Directed Energy Support Weapon Deploy Kit"
+
+	icon_state = "plasmaturret_kit"
+	item_state = "plaskit"
+
+	turret_contained = /obj/structure/turret/plas

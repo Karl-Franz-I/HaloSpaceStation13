@@ -40,9 +40,8 @@ var/global/list/additional_antag_types = list()
 	var/waittime_h = 180 SECONDS		     // Upper bounds on time before start of shift report
 
 	var/list/allowed_ghost_roles = list(/datum/ghost_role/mouse)
-
-	var/list/factions = list()
-	var/list/factions_by_name = list()
+	var/ship_lockdown_duration = 0
+	var/ship_lockdown_until = 0
 
 /datum/game_mode/New()
 	..()
@@ -236,6 +235,8 @@ var/global/list/additional_antag_types = list()
 
 	if(evacuation_controller && auto_recall_shuttle)
 		evacuation_controller.recall = 1
+
+	ship_lockdown_until = world.time + ship_lockdown_duration
 
 	feedback_set_details("round_start","[time2text(world.realtime)]")
 	if(ticker && ticker.mode)
@@ -473,7 +474,17 @@ var/global/list/additional_antag_types = list()
 	var/rank = job.title
 	if(character.mind.role_alt_title)
 		rank = character.mind.role_alt_title
-	AnnounceArrivalSimple(character.real_name, rank, join_message, get_announcement_frequency(job),character.default_language)
+	var/channel_name
+	if(job.spawn_faction)
+		var/datum/faction/F = GLOB.factions_by_name[job.spawn_faction]
+		channel_name = F.default_radio_channel
+		join_message = "has joined the [job.spawn_faction]"
+	if(channel_name)
+		AnnounceArrivalSimple(character.real_name, rank, join_message, channel_name, character.default_language)
+	else
+		var/error_msg = "ERROR: attempted to announce late arrival for [character] as [job] but could not find [channel_name]!"
+		log_and_message_admins(error_msg)
+		to_debug_listeners(error_msg)
 
 /hook/death/proc/mode_on_mob_death(var/mob/living/carbon/human/H, var/list/args = list())
 	//there is no mode if something dies before round start

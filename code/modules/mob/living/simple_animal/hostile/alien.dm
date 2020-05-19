@@ -21,7 +21,7 @@
 	attack_sound = 'sound/weapons/bladeslice.ogg'
 	min_gas = null
 	max_gas = null
-	unsuitable_atoms_damage = 15
+	unsuitable_atmos_damage = 15
 	faction = "alien"
 	environment_smash = 2
 	status_flags = CANPUSH
@@ -64,7 +64,7 @@
 	move_to_delay = 3
 	projectiletype = /obj/item/projectile/neurotox
 	projectilesound = 'sound/weapons/pierce.ogg'
-	rapid = 1
+	burst_size = 3
 	status_flags = 0
 
 /mob/living/simple_animal/hostile/alien/queen/large

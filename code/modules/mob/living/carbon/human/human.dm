@@ -88,13 +88,14 @@
 				stat("Chemical Storage", mind.changeling.chem_charges)
 				stat("Genetic Damage Time", mind.changeling.geneticdamage)
 
-		if(wear_suit && istype(wear_suit,/obj/item/clothing/suit/armor/special/))
+		if(wear_suit && istype(wear_suit,/obj/item/clothing/suit/armor/special))
 			var/obj/item/clothing/suit/armor/special/suit = wear_suit
-			for(var/datum/armourspecials/shields/shield_datum in suit.specials)
-				for(var/datum/armourspecials/shieldmonitor/mon in suit.specials)
-					for(var/helm in mon.valid_helmets)
-						if(istype(head,helm)) //No correct helm? No shield indicator.
-							stat("Shield Level:","[(shield_datum.shieldstrength/shield_datum.totalshields)*100]%")
+			var/datum/armourspecials/shields/shield_datum = locate(/datum/armourspecials/shields) in suit.specials
+			var/datum/armourspecials/shieldmonitor/mon = locate(/datum/armourspecials/shieldmonitor) in suit.specials
+			if(shield_datum && mon)
+				for(var/helm in mon.valid_helmets)
+					if(istype(head,helm)) //No correct helm? No shield indicator.
+						stat("Shield Level:","[(shield_datum.shieldstrength/shield_datum.totalshields)*100]%")
 
 /mob/living/carbon/human/ex_act(severity)
 	if(!blinded)
@@ -113,7 +114,7 @@
 				var/atom/target = get_edge_target_turf(src, get_dir(src, get_step_away(src, src)))
 				throw_at(target, 200, 4)
 			//return
-//				var/atom/target = get_edge_target_turf(user, get_dir(src, get_step_away(user, src)))
+	//			var/atom/target = get_edge_target_turf(user, get_dir(src, get_step_away(user, src)))
 				//user.throw_at(target, 200, 4)
 
 		if (2.0)
@@ -121,26 +122,30 @@
 			f_loss = 60
 
 			if (!istype(l_ear, /obj/item/clothing/ears/earmuffs) && !istype(r_ear, /obj/item/clothing/ears/earmuffs))
-				ear_damage += 30
-				ear_deaf += 120
+				ear_damage = min(ear_damage + 30,50*species.explosion_effect_mod)
+				ear_deaf = min(ear_damage + 120,120*species.explosion_effect_mod)
 			if (prob(70))
-				confused += 10
+				confused = min(confused + 10,30*species.explosion_effect_mod)
 
 		if(3.0)
 			b_loss = 30
 			if (!istype(l_ear, /obj/item/clothing/ears/earmuffs) && !istype(r_ear, /obj/item/clothing/ears/earmuffs))
-				ear_damage += 15
-				ear_deaf += 60
+				ear_damage = min(ear_damage + 15,50*species.explosion_effect_mod)
+				ear_deaf = min(ear_damage + 60,120*species.explosion_effect_mod)
 			if (prob(50))
-				confused += 10
+				confused = min(confused + 10,30*species.explosion_effect_mod)
 
-	// factor in armour
+
+	// factor in armour / degrade armor
 	var/protection = blocked_mult(getarmor(null, "bomb"))
-	b_loss *= protection
-	f_loss *= protection
 
 	// focus most of the blast on one organ
 	var/obj/item/organ/external/take_blast = pick(organs)
+	degrade_affected_armor(b_loss,BRUTE,take_blast)
+	degrade_affected_armor(f_loss,BURN,take_blast)
+	b_loss *= protection
+	f_loss *= protection
+
 	take_blast.take_damage(b_loss * 0.7, f_loss * 0.7, used_weapon = "Explosive blast")
 
 	// distribute the remaining 30% on all limbs equally (including the one already dealt damage)
@@ -157,6 +162,8 @@
 		else
 			loss_val = 0.05
 		temp.take_damage(b_loss * loss_val, f_loss * loss_val, used_weapon = weapon_message)
+		degrade_affected_armor(b_loss*loss_val,BRUTE,temp)
+		degrade_affected_armor(f_loss*loss_val,BURN,temp)
 
 /mob/living/carbon/human/proc/implant_loyalty(mob/living/carbon/human/M, override = FALSE) // Won't override by default.
 	if(!config.use_loyalty_implants && !override) return // Nuh-uh.

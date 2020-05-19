@@ -4,45 +4,19 @@
 	total_positions = -1
 	spawnpoint_override = "Colony Arrival Shuttle"
 	selection_color = "#000000"
-	faction_flag = COLONY
+	spawn_faction = "Human Colony"
 	supervisors = " the Colony Mayor"
-
-	create_record = 0
 	account_allowed = 1
-	generate_email = 0
-
+	generate_email = 1
 	loadout_allowed = TRUE
 	outfit_type = /decl/hierarchy/outfit/job/colonist
+	whitelisted_species = list(/datum/species/human)
 	latejoin_at_spawnpoints = FALSE
 	access = list(access_janitor, access_maint_tunnels, access_research)
 	alt_titles = list("Miner","Doctor","Nurse","Warehouse Worker","Construction Worker","Surgeon","Store Owner","Nightclub Owner","Secretary","Cargo Worker","Bartender","Cook","Chef","Farmer","Judge","Cargo Dock Worker","Lawyer","EMT","Paramedic","Bodyguard","Janitor")
 
-/datum/job/innie_sympathiser
-	title = "Colonist - Insurrectionist Sympathiser"
-	total_positions = 5
-	spawnpoint_override = "Colony Arrival Shuttle"
-	selection_color = "#000000"
-	faction_flag = INNIE
-	supervisors = " the Colony Mayor and your local insurrection contact"
-
-	create_record = 0
-	account_allowed = 1
-	generate_email = 0
-	announced = FALSE
-	outfit_type = /decl/hierarchy/outfit/job/colonist/innie_sympathiser
-
-	latejoin_at_spawnpoints = FALSE
-	access = list(access_janitor, access_maint_tunnels, access_research)
-
-/datum/job/insurrectionist_recruiter
-	title = "Colonist - Insurrectionist Recruiter"
-	total_positions = 1
-	head_position = 1
-	outfit_type = /decl/hierarchy/outfit/job/colonist/innie_sympathiser
-	spawnpoint_override = "Colony Arrival Shuttle"
-	selection_color = "#000000"
-	faction_flag = INNIE
-	supervisors = " the Insurrection"
+/datum/job/colonist/get_email_domain()
+	return "geminus.net"
 
 /datum/job/colonist_mayor
 	title = "Mayor"
@@ -50,13 +24,14 @@
 	head_position = 1
 	spawnpoint_override = "Colony Arrival Shuttle"
 	selection_color = "#000000"
-	faction_flag = COLONY
+	spawn_faction = "Human Colony"
 	supervisors = " your citizens"
-
-	create_record = 0
 	account_allowed = 1
-	generate_email = 0
+	generate_email = 1
+	economic_modifier = 3
+	loadout_allowed = TRUE
 	outfit_type = /decl/hierarchy/outfit/job/mayor
+	whitelisted_species = list(/datum/species/human)
 
 	latejoin_at_spawnpoints = FALSE
 	access = list(access_security, access_sec_doors, access_brig, access_forensics_lockers,
@@ -74,12 +49,14 @@
 	selection_color = "#000000"
 	supervisors = " the Colony Mayor"
 	create_record = 0
-	faction_flag = COLONY
+	spawn_faction = "Human Colony"
 	account_allowed = 1
 	announced = TRUE
-	generate_email = 0
+	generate_email = 1
+	economic_modifier = 1.5
 	loadout_allowed = TRUE
 	outfit_type = /decl/hierarchy/outfit/job/police
+	whitelisted_species = list(/datum/species/human)
 	latejoin_at_spawnpoints = FALSE
 	access = list(access_security, access_brig, access_maint_tunnels,
 						access_external_airlocks, access_emergency_storage,
@@ -89,20 +66,20 @@
 /datum/job/police_chief
 	title = "Chief of Police"
 	department = "Security"
-	department_flag = SEC|COM
 	total_positions = 1
-	faction_flag = COLONY
+	spawn_faction = "Human Colony"
 	head_position = 1
+	account_allowed = 1
+	generate_email = 1
+	loadout_allowed = TRUE
 	spawnpoint_override = "Colony Arrival Shuttle"
 	selection_color = "#000000"
 	supervisors = "the Colony Mayor"
-
-	create_record = 0
 	account_allowed = 1
-	generate_email = 0
-
-	loadout_allowed = TRUE
+	generate_email = 1
+	economic_modifier = 2
 	outfit_type = /decl/hierarchy/outfit/job/cop
+	whitelisted_species = list(/datum/species/human)
 
 	latejoin_at_spawnpoints = FALSE
 	access = list(access_security, access_eva, access_sec_doors, access_brig, access_armory,
@@ -112,7 +89,7 @@
 
 /datum/job/colony_ai
 	title = "UEG Colonial AI"
-	department_flag = SHIPAI
+	spawn_faction = "Human Colony"
 	spawn_positions = 1
 	is_whitelisted = 1
 	outfit_type = /decl/hierarchy/outfit/job/colony_AI

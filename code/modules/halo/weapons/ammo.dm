@@ -24,12 +24,35 @@
 	projectile_type = /obj/item/projectile/bullet/a127_saphe
 
 /obj/item/projectile/bullet/a127_saphe
-	damage = 50		//deadly but inaccurate
+	damage = 55		//deadly but inaccurate
 	accuracy = -1
+
+/obj/item/projectile/bullet/a127
+	damage = 25
 
 /obj/item/weapon/storage/box/m127_saphe
 	name = "box of 12.7mm M225 magazines"
 	startswith = list(/obj/item/ammo_magazine/m127_saphe = 7)
+
+//Made for M6B
+
+/obj/item/ammo_casing/a127
+	desc = "A 12.7mm bullet casing."
+	caliber = "12.7mm"
+	projectile_type = /obj/item/projectile/bullet/a127
+
+/obj/item/ammo_magazine/r127
+	name = "magazine (12.7mm)"
+	desc = "12.7x40mm magazine containing 12 rounds. Civilian variant."
+	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
+	icon_state = "m6bmag"
+	mag_type = MAGAZINE
+	ammo_type = /obj/item/ammo_casing/a127
+	matter = list(DEFAULT_WALL_MATERIAL = 1000) //12.7mm casing = 83.3 metal each
+	caliber = "12.7mm"
+	max_ammo = 12
+	multiple_sprites = 1
+
 
 //used by: Magnum M6D, Magnum M6S
 
@@ -52,8 +75,8 @@
 
 //deadly but inaccurate
 /obj/item/projectile/bullet/a127_saphp
-	damage = 20
-	armor_penetration = 35
+	damage = 40
+	armor_penetration = 20
 	accuracy = 1
 
 /obj/item/weapon/storage/box/m127_saphp
@@ -133,15 +156,15 @@
 	damage = 30
 
 /obj/item/projectile/bullet/a762_ttr
-	armor_penetration = 1
+	armor_penetration = 0
 	nodamage = 1
 	agony = 10
 	damage_type = PAIN
 	penetrating = 0
 
 /obj/item/projectile/bullet/a762_M392
-	damage = 40
-	armor_penetration = 60
+	damage = 30
+	armor_penetration = 15
 
 /obj/item/weapon/storage/box/m762_ap
 	name = "box of 7.62mm M118 magazines"
@@ -185,14 +208,14 @@
 
 /obj/item/ammo_magazine/a762_box_ap
 	name = "box magazine (7.62mm) M118 FMJ-AP"
-	desc = "7.62x51mm M118 Full Metal Jacket Armor Piercing box magazine containing 72 rounds. Designed for heavier use."
+	desc = "7.62x51mm M118 Full Metal Jacket Armor Piercing box magazine containing 150 rounds. Designed for heavier use."
 	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
 	mag_type = MAGAZINE
 	icon_state = "M739mag"
 	ammo_type = /obj/item/ammo_casing/a762_ap
 	matter = list(DEFAULT_WALL_MATERIAL = 5000) //7.62mm casing = 50 metal each
 	caliber = "a762"
-	max_ammo = 72
+	max_ammo = 150
 	multiple_sprites = 1
 
 /obj/item/ammo_magazine/a762_box_ap/empty
@@ -200,14 +223,14 @@
 
 /obj/item/ammo_magazine/lmg_30cal_box_ap
 	name = "box magazine (7.62mm) M118 FMJ-AP"
-	desc = "7.62x51mm M118 Full Metal Jacket Armor Piercing box magazine containing 72 rounds. Designed for heavier use."
+	desc = "7.62x51mm M118 Full Metal Jacket Armor Piercing box magazine containing 150 rounds. Designed for heavier use."
 	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
 	mag_type = MAGAZINE
 	icon_state = "Innie 30cal box - Full"
 	ammo_type = /obj/item/ammo_casing/a762_ap
 	matter = list(DEFAULT_WALL_MATERIAL = 5000) //7.62mm casing = 50 metal each
 	caliber = "a762"
-	max_ammo = 72
+	max_ammo = 150
 	multiple_sprites = 1
 
 
@@ -236,18 +259,22 @@
 	projectile_type = /obj/item/projectile/bullet/a145_ap/tracerless
 
 /obj/item/projectile/bullet/a145_ap
-	damage = 80
-	step_delay = 0.1
+	damage = 55
+	step_delay = 0
 	penetrating = 5
-	armor_penetration = 80
+	armor_penetration = 60
 	tracer_type = /obj/effect/projectile/srs99
 	tracer_delay_time = 2 SECONDS
+	shield_damage = 210
 
 /obj/item/projectile/bullet/a145_ap/tracerless //Modified slightly to provide a downside for using the innie-heavy-sniper-rounds over normal rounds.
-	damage = 70
-	penetrating = 2
+	damage = 55
+	armor_penetration = 55
 	tracer_type = null
 	tracer_delay_time = null
+	pin_range = 3
+	pin_chance = 70
+	shield_damage = 150
 
 /obj/effect/projectile/srs99
 	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
@@ -293,7 +320,7 @@
 	name = "rubber bullet"
 	check_armour = "melee"
 	damage = 5
-	agony = 25
+	agony = 20
 	embed = 0
 	sharp = 0
 
@@ -312,8 +339,8 @@
 	damtype = PAIN
 	damage = 40
 	//NOTE: Life() calls happen every two seconds, and life() reduces dizziness by one
-	var/stun_time = 2 //This is in seconds.
-	var/suppress_time = 4
+	var/stun_time = 4 //This is in ticks
+	var/suppress_intensity = 8
 	var/disorient_time = 6
 
 /obj/item/projectile/SDSS_proj/on_hit(var/mob/living/carbon/human/L, var/blocked = 0, var/def_zone = null)
@@ -324,7 +351,7 @@
 	L.Weaken(stun_time)
 	L.confused += disorient_time
 	shake_camera(L,disorient_time,2)
-	L.overlay_fullscreen("supress",/obj/screen/fullscreen/oxy, 6)
+	L.overlay_fullscreen("supress",/obj/screen/fullscreen/oxy, suppress_intensity)
 	return 1
 
 //M41 rocket launcher
@@ -349,6 +376,7 @@
 	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
 	check_armour = "bomb"
 	step_delay = 1.2
+	shield_damage = 200 //just below elite minor shields, meaning subsequent explosion and guaranteed damage will collapse it.
 
 /obj/item/projectile/bullet/ssr/on_impact(var/atom/target)
 	explosion(target, 0, 1, 2, 4,guaranteed_damage = 50,guaranteed_damage_range = 2)
@@ -356,13 +384,13 @@
 
 /obj/item/weapon/storage/box/spnkr
 	name = "102mm HEAT SPNKr crate"
-	desc = "UNSC certified crate containing two tubes of SPNKr rockets for a total of four rockets to be loaded in the M41 SSR."
+	desc = "UNSC certified crate containing four tubes of SPNKr rockets for a total of eight rockets to be loaded in the M41 SSR."
 	icon = 'code/modules/halo/icons/objs/halohumanmisc.dmi'
 	icon_state = "ssrcrate"
-	max_storage_space = base_storage_capacity(6)
-	startswith = list(/obj/item/ammo_magazine/spnkr = 2)
+	max_storage_space = base_storage_capacity(12)
+	startswith = list(/obj/item/ammo_magazine/spnkr = 4)
 	can_hold = list(/obj/item/ammo_magazine/spnkr)
-	slot_flags = SLOT_BACK
+	slot_flags = SLOT_BACK | SLOT_BELT
 	max_w_class = ITEM_SIZE_HUGE
 
 //ACL-55 rocket launcher
@@ -387,6 +415,7 @@
 	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
 	check_armour = "bomb"
 	step_delay = 1.2
+	shield_damage = 200
 
 /obj/item/projectile/bullet/m26/on_impact(var/atom/target)
 	explosion(target, 0, 1, 2, 4,guaranteed_damage = 50,guaranteed_damage_range = 2)
@@ -402,3 +431,15 @@
 	can_hold = list(/obj/item/ammo_magazine/m26)
 	slot_flags = SLOT_BACK
 	max_w_class = ITEM_SIZE_HUGE
+
+/obj/item/ammo_magazine/kv32
+	name = "magazine (12 gauge) Buckshot"
+	desc = "12 gauge magazine containing 4 rounds. Fits the KV-32."
+	icon = 'code/modules/halo/weapons/icons/Weapon Sprites.dmi'
+	icon_state = "kv_mag"
+	mag_type = MAGAZINE
+	ammo_type = /obj/item/ammo_casing/shotgun/pellet
+	matter = list(DEFAULT_WALL_MATERIAL = 1500)
+	caliber = "shotgun"
+	max_ammo = 4
+	multiple_sprites = 1

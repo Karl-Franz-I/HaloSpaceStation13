@@ -44,14 +44,14 @@
 
 /obj/item/projectile/overmap/ship_scanner/scanner_projectile/on_impact(var/atom/impacted)
 	var/obj/effect/overmap/om_obj = impacted
-	if(isnull(om_obj) || isnull(console_fired_by))
+	if(!istype(om_obj) || isnull(console_fired_by))
 		return
 	var/obj/effect/overmap/ship/npc_ship/npc = om_obj
 	if(om_obj.hull_segments.len == 0 && !istype(npc))
 		to_chat(firer,"<span class = 'notice'>No superstructure to scan.</span>")
 		return
 	var/superstructure_strength = om_obj.get_superstructure_strength() * 100
-	if(istype(npc))
+	if(istype(npc) && !npc.is_player_controlled())
 		superstructure_strength = (npc.hull/initial(npc.hull)) * 100
 	to_chat(firer,"<span class = 'notice'>Scanning superstructure...</span>")
 	sleep(1 SECOND)
@@ -59,5 +59,4 @@
 	qdel(src)
 
 /obj/machinery/overmap_weapon_console/ship_scanning_console/cov
-	icon = 'code/modules/halo/icons/machinery/covenant/consoles.dmi'
 	icon_state = "covie_console"

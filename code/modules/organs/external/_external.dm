@@ -897,7 +897,7 @@ Note that amputating the affected organ does in fact remove the infection from t
 		W.germ_level = 0
 	return rval
 
-/obj/item/organ/external/proc/clamp()
+/obj/item/organ/external/proc/clamp_organ()
 	var/rval = 0
 	src.status &= ~ORGAN_BLEEDING
 	for(var/datum/wound/W in wounds)
@@ -1037,6 +1037,8 @@ Note that amputating the affected organ does in fact remove the infection from t
 		return
 	if(species.flags & NO_EMBED)
 		return
+	if(!W.can_embed())
+		return
 	if(!silent)
 		if(supplied_message)
 			owner.visible_message("<span class='danger'>[supplied_message]</span>")
@@ -1056,6 +1058,7 @@ Note that amputating the affected organ does in fact remove the infection from t
 
 	supplied_wound.embedded_objects += W
 	implants += W
+	owner.embedded.Add(W)
 	owner.embedded_flag = 1
 	owner.verbs += /mob/proc/yank_out_object
 	W.add_blood(owner)

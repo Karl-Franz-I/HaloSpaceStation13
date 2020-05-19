@@ -10,19 +10,24 @@
 	max_shots = 80
 	slowdown_general = 0
 	var/overcharge = 0
-	projectile_type = /obj/item/projectile/covenant/plasmapistol
+	var/overcharge_type = /obj/item/projectile/bullet/covenant/plasmapistol/overcharge
+	projectile_type = /obj/item/projectile/bullet/covenant/plasmapistol
 	screen_shake = 0
-	irradiate_non_cov = 5
+	irradiate_non_cov = 10
 	var/overcharge_cost = 1
-	sprite_sheets = list(
-		"Tvaoan Kig-Yar" = null,\
-		"Jiralhanae" = null,\
-		"Sangheili" = null\
+	accuracy = 1
+	item_state = "plasmapistol"
+	item_icons = list(
+		slot_l_hand_str = 'code/modules/halo/weapons/icons/Weapon_Inhands_left.dmi',
+		slot_r_hand_str = 'code/modules/halo/weapons/icons/Weapon_Inhands_right.dmi',
+		slot_back_str = 'code/modules/halo/weapons/icons/Back_Weapons.dmi',
+		slot_s_store_str = 'code/modules/halo/weapons/icons/Armor_Weapons.dmi',
+		slot_s_belt_str = 'code/modules/halo/weapons/icons/Belt_Weapons.dmi',
 		)
 
 /obj/item/weapon/gun/energy/plasmapistol/New()
 	. = ..()
-	overcharge_cost = initial(charge_cost)*(max_shots/2)
+	overcharge_cost = initial(charge_cost)*4
 
 /obj/item/weapon/gun/energy/plasmapistol/attack_self(var/mob/user)
 	if(power_supply.charge >= overcharge_cost)
@@ -35,21 +40,18 @@
 			update_icon()
 			return 1
 
-/obj/item/weapon/gun/energy/plasmapistol/consume_next_projectile()
-	.  = ..()
-	if(overcharge)
-		set_overcharge(0)
-
 /obj/item/weapon/gun/energy/plasmapistol/proc/set_overcharge(var/new_overcharge = 1, var/mob/user = null)
 	if(new_overcharge != overcharge)
 		if(new_overcharge)
 			if(user)
 				visible_message("<span class='notice'>[user.name]'s [src]'s lights brighten</span>","<span class='notice'>You activate your [src]'s overcharge</span>")
-			projectile_type = /obj/item/projectile/covenant/plasmapistol/overcharge
+			projectile_type = overcharge_type
 			charge_cost = overcharge_cost
 			overcharge = 1
 			overlays += "overcharge"
 			set_light(3, 1, "66FF00")
+			burst = 1
+			fire_delay = initial(fire_delay) * 3 //triples the fire delay.
 		else
 			if(user)
 				visible_message("<span class='notice'>[user.name]'s [src]'s lights darken</span>","<span class='notice'>You deactivate your [src]'s overcharge</span>")
@@ -58,6 +60,8 @@
 			charge_cost = initial(charge_cost)
 			overlays -= "overcharge"
 			set_light(0, 0, "66FF00")
+			burst = initial(burst)
+			fire_delay = initial(fire_delay)
 
 /obj/item/weapon/gun/energy/plasmapistol/disabled
 	desc = "A dual funtionality pistol: It fires bolts of plasma, and when overcharged is capable of emitting a small emp burst at the point of impact. This one appears to be disabled"
@@ -71,10 +75,31 @@
 	desc = "A dual funtionality pistol: It fires bolts of plasma, and when overcharged is capable of emitting a small emp burst at the point of impact. This one appears to be modified to fire very weak bolts of energy."
 	icon = 'code/modules/halo/icons/Covenant Weapons.dmi'
 	icon_state = "Training Pistol"
-	projectile_type = /obj/item/projectile/covenant/trainingpistol
+	projectile_type = /obj/item/projectile/bullet/covenant/trainingpistol
 
 /obj/item/weapon/gun/energy/plasmapistol/trainingpistol/set_overcharge(var/new_overcharge = 1, var/mob/user = null)
 	return
+
+/obj/item/weapon/gun/energy/plasmapistol/fastfire //Used as an SMG counterpart for first-contact.
+	name = "Type-25 Directed Energy Pistol, Modified"
+	desc = "A dual funtionality pistol: It fires bolts of plasma, and when overcharged is capable of emitting a small emp burst at the point of impact. This one appears to have been modified for usage by Kig-Yar and Unggoy, with an increased fire-rate and decreased damage."
+	max_shots = 240 // 4 smg mags worth
+	projectile_type = /obj/item/projectile/bullet/covenant/plasmapistol/fastfire
+	overcharge_type = /obj/item/projectile/bullet/covenant/plasmapistol/overcharge/fastfire
+	one_hand_penalty = -1
+	burst = 4
+	burst_delay = 1.4
+	burst_accuracy = list(0,0,0,-1)
+	dispersion = list(0.0, 0.4, 0.8, 1.0)
+
+/obj/item/weapon/gun/energy/plasmapistol/fastfire/special_check(var/mob/user)
+	. = ..()
+	if(.)
+		var/mob/living/carbon/human/h = user
+		if(istype(h))
+			if(!istype(h.species,/datum/species/unggoy) && !istype(h.species,/datum/species/kig_yar))
+				to_chat(user,"<span class = 'notice'>[src] hasn't been modified for your species!</span>")
+				return 0
 
 /obj/item/weapon/gun/projectile/needler // Uses "magazines" to reload rather than inbuilt cells.
 	name = "Type-33 Guided Munitions Launcher"
@@ -85,20 +110,16 @@
 	slot_flags = SLOT_BELT||SLOT_HOLSTER
 	fire_sound = 'code/modules/halo/sounds/needlerfire.ogg'
 	magazine_type = /obj/item/ammo_magazine/needles
-	handle_casings = CLEAR_CASINGS
+	handle_casings = CASELESS
 	caliber = "needler"
 	load_method = MAGAZINE
 	burst = 3
 	is_heavy = 1
-	irradiate_non_cov = 2
+	irradiate_non_cov = 5
 	slowdown_general = 0
 
 	item_icons = list(
 		slot_l_hand_str = 'code/modules/halo/weapons/icons/Weapon_Inhands_left.dmi',
 		slot_r_hand_str = 'code/modules/halo/weapons/icons/Weapon_Inhands_right.dmi',
-		)
-	sprite_sheets = list(
-		"Tvaoan Kig-Yar" = null,\
-		"Jiralhanae" = null,\
-		"Sangheili" = null\
+		slot_back_str = 'code/modules/halo/weapons/icons/Back_Weapons.dmi',
 		)

@@ -24,7 +24,7 @@
 /mob/proc/equip_to_slot_if_possible(obj/item/W as obj, slot, del_on_fail = 0, disable_warning = 0, redraw_mob = 1)
 	if(!istype(W)) return 0
 
-	if(!W.mob_can_equip(src, slot, disable_warning))
+	if(!W.mob_can_equip(src, slot, disable_warning,W.w_class))
 		if(del_on_fail)
 			qdel(W)
 		else
@@ -156,6 +156,8 @@ var/list/slot_equipment_priority = list( \
 
 //Drops the item in our active hand. TODO: rename this to drop_active_hand or something
 /mob/proc/drop_item(var/atom/Target)
+	if(istype(loc,/obj/vehicles))
+		return
 	if(hand)	return drop_l_hand(Target)
 	else		return drop_r_hand(Target)
 

@@ -16,7 +16,7 @@
 	var/welded = 0
 	var/large = 1
 	var/wall_mounted = 0 //never solid (You can always pass over it)
-	var/health = 100
+	var/health = 600
 	var/breakout = 0 //if someone is currently breaking out. mutex
 	var/storage_capacity = 2 * MOB_MEDIUM //This is so that someone can't pack hundreds of items in a locker/crate
 							  //then open it in a populated area to crash clients.
@@ -70,7 +70,7 @@
 
 /obj/structure/closet/CanPass(atom/movable/mover, turf/target, height=0, air_group=0)
 	if(air_group || (height==0 || wall_mounted)) return 1
-	return (!density)
+	return (!density || (mover && mover.elevation != elevation))
 
 /obj/structure/closet/proc/can_open()
 	if((setup & CLOSET_HAS_LOCK) && locked)
@@ -399,6 +399,7 @@
 	else
 		icon_state = icon_opened
 
+/*
 /obj/structure/closet/attack_generic(var/mob/user, var/damage, var/attack_message = "destroys", var/wallbreaker)
 	if(!damage || !wallbreaker)
 		return
@@ -407,6 +408,7 @@
 	dump_contents()
 	spawn(1) qdel(src)
 	return 1
+	*/
 
 /obj/structure/closet/proc/req_breakout()
 	if(opened)

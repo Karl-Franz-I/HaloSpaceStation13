@@ -12,6 +12,18 @@
 	var/currently_tracked_proj = null
 	var/list/loaded_ammo = list()
 	var/list/linked_devices = list() //Handled on a weapon-by-weapon basis
+	var/fire_delay = 0 //This is used if anything else isn't handling this.
+	var/next_fire_at
+	ai_access_level = 4
+
+/obj/machinery/overmap_weapon_console/attack_ai(var/mob/living/silicon/ai/ai)
+	if(!istype(ai))
+		return
+	if(!ai.console_operating)
+		ai.console_operating = src
+		ai.machine = src
+		ai.reset_view(map_sectors["[z]"])
+		to_chat(ai,"<span class = 'notice'>You are now operating a ship weapon. Use Cancel Camera View to leave, or use movement controls then click on an empty tile.</span>")
 
 /obj/machinery/overmap_weapon_console/ex_act(var/severity)
 	return
@@ -43,11 +55,11 @@
 /obj/machinery/overmap_weapon_console/proc/scan_linked_devices() //Overriden on a weapon-by-weapon basis
 
 /obj/machinery/overmap_weapon_console/check_eye(var/mob/user)
-	if(!istype(user.l_hand,/obj/item/weapon/gun/aim_tool) && !istype(user.r_hand,/obj/item/weapon/gun/aim_tool))
+	if(!istype(user,/mob/living/silicon/ai) && (!istype(user.l_hand,/obj/item/weapon/gun/aim_tool) && !istype(user.r_hand,/obj/item/weapon/gun/aim_tool)))
 		user.machine = null
 		user.reset_view(null)
 		return -1
-	if(get_dist(user,src) > 1)
+	if(!istype(user,/mob/living/silicon/ai) && get_dist(user,src) > 1)
 		user.machine = null
 		user.reset_view(null)
 		return -1
@@ -84,8 +96,9 @@
 	return 0
 
 /obj/machinery/overmap_weapon_console/proc/fire_projectile(var/atom/target,var/mob/user,var/directly_above = 0)
+	next_fire_at = world.time + fire_delay
 	var/obj/om_obj = map_sectors["[z]"]
-	var/obj/item/projectile/overmap/new_projectile = new fired_projectile (om_obj.loc)
+	var/obj/item/projectile/overmap/new_projectile = new fired_projectile (om_obj.loc,src)
 	new_projectile.damage += get_linked_device_damage_mod()
 	new_projectile.permutated += om_obj //Ensuring we don't hit ourselves somehow
 	new_projectile.firer = user
@@ -106,11 +119,14 @@
 	if(isnull(fire_sound))
 		return
 
-	playsound(loc_sound_origin, fire_sound, 50, 1, 5, 5,1)
+	playsound(loc_sound_origin, fire_sound, 10, 1, 5, 5,1)
 
 /obj/machinery/overmap_weapon_console/proc/can_fire(var/atom/target,var/mob/living/user,var/click_params)
 	scan_linked_devices()
 	if(!user)
+		return 0
+	if(!istype(user,/mob/living/silicon/ai) && get_dist(user,src) > 1)
+		to_chat(user,"<span class = 'notice'>You need to be next to the firing console to do that!</span>")
 		return 0
 	var/obj/overmap_sector = map_sectors["[z]"]
 	if(!overmap_sector)
@@ -120,6 +136,9 @@
 		return 0
 	if(direction_locked && (get_dir(overmap_sector,target) != overmap_sector.dir)) //Direction lock check.
 		to_chat(user,"<span class = 'warning'>Weapon is locked to direction of ship. Realign ship to fire.</span>")
+		return 0
+	if(world.time < next_fire_at)
+		to_chat(user,"<span class = 'warning'>You can't fire this again yet.</span>")
 		return 0
 	if(!consume_loaded_ammo(user))
 		return 0

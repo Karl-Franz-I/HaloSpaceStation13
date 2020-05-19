@@ -17,6 +17,10 @@
 */
 
 /atom/Click(var/location, var/control, var/params) // This is their reaction to being clicked on (standard proc)
+	var/list/L = params2list(params)
+	var/dragged = L["drag"]
+	if(dragged && !L[dragged])
+		return
 	var/datum/click_handler/click_handler = usr.GetClickHandler()
 	click_handler.OnClick(src, params)
 
@@ -130,6 +134,8 @@
 		if(adjacent)
 			if(W)
 				// Return 1 in attackby() to prevent afterattack() effects (when safely moving items for example)
+				if(istype(loc,/obj/vehicles))
+					return
 				var/resolved = W.resolve_attackby(A,src, params)
 				if(!resolved && A && W)
 					W.afterattack(A, src, 1, params) // 1: clicking something Adjacent

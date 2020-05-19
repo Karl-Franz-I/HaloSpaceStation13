@@ -163,7 +163,8 @@ var/list/admin_verbs_server = list(
 	/client/proc/check_customitem_activity,
 	/client/proc/nanomapgen_DumpImage,
 	/client/proc/reload_whitelists,
-	/client/proc/adminmapswitch
+	/client/proc/adminmapswitch,
+	/client/proc/panic_bunker
 	)
 var/list/admin_verbs_debug = list(
 	/client/proc/getruntimelog,                     // allows us to access runtime logs to somebody,
@@ -199,8 +200,8 @@ var/list/admin_verbs_debug = list(
 	/client/proc/jumptocoord,
 	/client/proc/dsay,
 	/datum/admins/proc/run_unit_test,
-	/turf/proc/view_chunk,
-	/turf/proc/update_chunk,
+	//turf/proc/view_chunk,
+	//turf/proc/update_chunk,
 	/datum/admins/proc/capture_map,
 	/datum/admins/proc/view_runtimes,
 	/client/proc/cmd_analyse_health_context,

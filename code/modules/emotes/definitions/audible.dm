@@ -8,6 +8,24 @@
 	if(emote_sound)
 		playsound(user.loc, emote_sound, 50, 0)
 
+/decl/emote/audible/species_sound
+	var/list/species_sounds = list() //Put typepaths = soundfile in here.
+
+/decl/emote/audible/species_sound/do_extra(var/atom/user)
+	if(species_sounds.len > 0)
+		var/mob/living/carbon/human/h = user
+		if(!istype(h))
+			return
+		if(h.stat != CONSCIOUS)
+			return
+		if(world.time < h.next_scream_at)
+			return
+		if(h.species.type in species_sounds)
+			emote_sound = species_sounds[h.species.type]
+			if(emote_sound)
+				playsound(user.loc,emote_sound,75,0,7)
+				h.next_scream_at = world.time + SCREAM_COOLDOWN
+
 /decl/emote/audible/deathgasp_alien
 	key = "deathgasp"
 	emote_message_3p = "USER lets out a waning guttural screech, green blood bubbling from its maw."
@@ -164,3 +182,13 @@
 	playsound(user.loc, scream_sound,50,0,7)
 	h.next_scream_at = world.time + SCREAM_COOLDOWN
 	return
+
+/decl/emote/audible/species_sound/wort
+	key = "wort"
+	emote_message_3p = "USER worts, three times.!"
+	species_sounds = list(/datum/species/sangheili = 'code/modules/halo/sounds/worting.ogg')
+
+/decl/emote/audible/species_sound/need_weapon
+	key = "weapon"
+	emote_message_3p = "USER exclaims their need for a weapon!"
+	species_sounds = list(/datum/species/spartan = 'code/modules/halo/sounds/need_weapon.ogg')

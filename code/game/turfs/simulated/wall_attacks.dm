@@ -203,7 +203,7 @@
 	// Basic dismantling.
 	if(isnull(construction_stage) || !reinf_material)
 
-		var/cut_delay = 60 - material.cut_delay
+		var/cut_delay = material.cut_delay
 		var/dismantle_verb
 		var/dismantle_sound
 
@@ -216,16 +216,13 @@
 				return
 			dismantle_verb = "cutting"
 			dismantle_sound = 'sound/items/Welder.ogg'
-			cut_delay *= 0.7
 		else if(istype(W,/obj/item/weapon/melee/energy/blade))
 			dismantle_sound = "sparks"
 			dismantle_verb = "slicing"
-			cut_delay *= 0.5
 		else if(istype(W,/obj/item/weapon/pickaxe))
 			var/obj/item/weapon/pickaxe/P = W
 			dismantle_verb = P.drill_verb
 			dismantle_sound = P.drill_sound
-			cut_delay -= P.digspeed
 
 		if(dismantle_verb)
 
@@ -354,9 +351,7 @@
 	else if(!istype(W,/obj/item/weapon/rcd) && !istype(W, /obj/item/weapon/reagent_containers))
 		if(!W.force)
 			return attack_hand(user)
-		var/dam_threshhold = material.integrity
-		if(reinf_material)
-			dam_threshhold = ceil(max(dam_threshhold,reinf_material.integrity)/2)
+		var/dam_threshhold = max_health()
 		var/dam_prob = min(100,material.hardness*1.5)
 		if(dam_prob < 100 && W.force > (dam_threshhold/10))
 			playsound(src, hitsound, 80, 1)

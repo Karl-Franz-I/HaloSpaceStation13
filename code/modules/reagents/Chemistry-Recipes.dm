@@ -350,6 +350,12 @@
 	required_reagents = list(/datum/reagent/carbon = 1, /datum/reagent/hydrazine = 1, /datum/reagent/dylovene = 1)
 	result_amount = 2
 
+/datum/chemical_reaction/otomax
+	name = "Otomax"
+	result = /datum/reagent/otomax
+	required_reagents = list(/datum/reagent/carbon = 1, /datum/reagent/hydrazine = 1, /datum/reagent/potassium = 1)
+	result_amount = 2
+
 /datum/chemical_reaction/ethylredoxrazine
 	name = "Ethylredoxrazine"
 	required_reagents = list(/datum/reagent/acetone = 1, /datum/reagent/dylovene = 1, /datum/reagent/carbon = 1)
@@ -671,7 +677,6 @@
 	mix_message = null
 
 /datum/chemical_reaction/nitroglycerin_shrapnel/on_reaction(var/datum/reagents/holder, var/created_volume)
-	//obj/proc/fragmentate(var/turf/T=get_turf(src), var/fragment_number = 30, var/spreading_range = 5, var/list/fragtypes=list(/obj/item/projectile/bullet/pellet/fragment/))
 	var/obj/O = holder.my_atom
 	if(O)
 		var/fragments = holder.get_reagent_amount(/datum/reagent/iron) / 5
@@ -687,13 +692,8 @@
 
 /datum/chemical_reaction/napalm/on_reaction(var/datum/reagents/holder, var/created_volume)
 	var/turf/location = get_turf(holder.my_atom.loc)
-	var/max_range = max(created_volume / 10, 1)
-	for(var/turf/simulated/floor/target_tile in range(max_range,location))
-		var/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel/F = new(target_tile, created_volume)
-		F.Spread()
-		//target_tile.assume_gas(/datum/reagent/toxin/phoron, created_volume, 400+T0C)
-		spawn (0) target_tile.hotspot_expose(700, 400)
-		break
+	var/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel/F = new(location, created_volume)
+	F.Spread()
 	holder.del_reagent("napalm")
 
 /datum/chemical_reaction/chemsmoke

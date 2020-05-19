@@ -53,16 +53,6 @@
 	heat_protection = FEET
 	max_heat_protection_temperature = SHOE_MAX_HEAT_PROTECTION_TEMPERATURE
 
-/obj/item/clothing/shoes/dutyboots
-	name = "duty boots"
-	desc = "A pair of steel-toed synthleather boots with a mirror shine."
-	icon_state = "duty"
-	armor = list(melee = 40, bullet = 20, laser = 0, energy = 15, bomb = 20, bio = 0, rad = 20)
-	siemens_coefficient = 0.7
-	can_hold_knife = 1
-	body_parts_covered = FEET|LEGS
-	item_flags = NOSLIP
-
 /obj/item/clothing/shoes/tactical
 	name = "tactical boots"
 	desc = "Tan boots with extra padding and armor."
@@ -105,22 +95,12 @@
 	icon_state = "clown"
 	item_state = "clown"
 	force = 0
-	var/footstep = 1	//used for squeeks whilst walking
+	stepsound = "clownstep"
 	species_restricted = null
 
 /obj/item/clothing/shoes/clown_shoes/New()
 	..()
 	slowdown_per_slot[slot_shoes]  = SHOES_SLOWDOWN+1
-
-/obj/item/clothing/shoes/clown_shoes/handle_movement(var/turf/walking, var/running)
-	if(running)
-		if(footstep >= 2)
-			footstep = 0
-			playsound(src, "clownstep", 50, 1) // this will get annoying very fast.
-		else
-			footstep++
-	else
-		playsound(src, "clownstep", 20, 1)
 
 /obj/item/clothing/shoes/cult
 	name = "boots"

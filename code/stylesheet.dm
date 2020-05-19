@@ -95,15 +95,21 @@ h1.alert, h2.alert		{color: #000000;}
 .solcom					{color: #22228B;}
 .changeling				{color: #800080;}
 .vox					{color: #AA00AA;}
+.unggoy					{color: #289494;}
+.jiralhanae				{color: #750d27;}
+.tvaoan					{color: #50754c;}
+.ruutian				{color: #cf9c4a;}
+.sanshyuum				{color: #5f5bde;}
+.lekgolo				{color: #cf8a0a;}
 .rough					{font-family: "Trebuchet MS", cursive, sans-serif;}
 .say_quote				{font-family: Georgia, Verdana, sans-serif;}
 .terran					{color: #9C250B;}
 
 .interface				{color: #330033;}
 
-.good                   {color: #4f7529; font-weight: bold;}
-.mixed                   {color: #ccbboo; font-weight: bold;}
-.bad                    {color: #ee0000; font-weight: bold;}
+.good					{color: #4f7529; font-weight: bold;}
+.mixed					{color: #FF7F00; font-weight: bold;}
+.bad					{color: #ee0000; font-weight: bold;}
 
 BIG IMG.icon 			{width: 32px; height: 32px;}
 

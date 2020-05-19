@@ -275,7 +275,7 @@ var/list/name_to_material
 /material/silver
 	name = "silver"
 	stack_type = /obj/item/stack/material/silver
-	icon_colour = "#D1E6E3"
+	icon_colour = "#E2EFED"
 	weight = 22
 	hardness = 50
 	stack_origin_tech = list(TECH_MATERIAL = 3)
@@ -352,7 +352,7 @@ var/list/name_to_material
 /material/steel
 	name = DEFAULT_WALL_MATERIAL
 	stack_type = /obj/item/stack/material/steel
-	integrity = 150
+	integrity = 250
 	brute_armor = 5
 	icon_base = "solid"
 	icon_reinf = "reinf_over"
@@ -399,7 +399,7 @@ var/list/name_to_material
 	name = "titanium"
 	brute_armor = 10
 	burn_armor = 8
-	integrity = 200
+	integrity = 300
 	melting_point = 3000
 	stack_type = null
 	icon_base = "metal"
@@ -410,7 +410,7 @@ var/list/name_to_material
 /material/plasteel/ocp
 	name = "osmium-carbide plasteel"
 	stack_type = /obj/item/stack/material/ocp
-	integrity = 200
+	integrity = 300
 	melting_point = 12000
 	icon_base = "solid"
 	icon_reinf = "reinf_over"
@@ -866,3 +866,6 @@ var/list/name_to_material
 	ignition_point = T0C+232
 	melting_point = T0C+300
 	conductive = 0
+
+/material/proc/get_wall_texture()
+	return

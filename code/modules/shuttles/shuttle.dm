@@ -7,6 +7,7 @@
 
 	var/area/shuttle_area //can be both single area type or a list of areas
 	var/obj/effect/shuttle_landmark/current_location
+	var/obj/effect/shuttle_landmark/next_location
 
 	var/arrive_time = 0	//the time at which the shuttle arrives when long jumping
 	var/flags = SHUTTLE_FLAGS_PROCESS
@@ -16,6 +17,8 @@
 
 	var/sound_takeoff = 'sound/effects/shuttle_takeoff.ogg'
 	var/sound_landing = 'sound/effects/shuttle_landing.ogg'
+
+	var/obj/machinery/power/shuttle_charger/connected_charger
 
 /datum/shuttle/New(_name, var/obj/effect/shuttle_landmark/initial_location)
 	..()
@@ -65,6 +68,8 @@
 	moving_status = SHUTTLE_WARMUP
 	if(sound_takeoff)
 		playsound(current_location, sound_takeoff, 100, 20, 0.2)
+	if(sound_landing && next_location)
+		playsound(next_location, sound_landing, 100, 20, 0.2)
 	spawn(warmup_time*10)
 		if (moving_status == SHUTTLE_IDLE)
 			return FALSE	//someone cancelled the launch
@@ -106,10 +111,10 @@
 
 	if(!destination.is_valid(src))
 		return FALSE
-	testing("[src] moving to [destination]. Areas are [english_list(shuttle_area)]")
+	//testing("[src] moving to [destination]. Areas are [english_list(shuttle_area)]")
 	var/list/translation = list()
 	for(var/area/A in shuttle_area)
-		testing("Moving [A]")
+		//testing("Moving [A]")
 		translation += get_turf_translation(get_turf(current_location), get_turf(destination), A.contents)
 	shuttle_moved(destination, translation)
 	return TRUE
@@ -169,6 +174,10 @@
 				var/turf/TA = GetAbove(TD)
 				if(istype(TA, get_base_turf_by_area(TA)) || istype(TA, /turf/simulated/open))
 					TA.ChangeTurf(ceiling_type, 1, 1)
+
+	//disconnect any shuttle chargers
+	if(connected_charger)
+		connected_charger.shuttle_disconnect()
 
 	// Remove all powernets that were affected, and rebuild them.
 	var/list/cables = list()

@@ -123,6 +123,11 @@
 		qdel(src)
 		return
 
+	if(byond_version < config.minimum_byond_version || byond_build < config.minimum_byond_build)		//BYOND out of date.
+		to_chat(src, "You are attempting to connect with a out of date version of BYOND. Please update to the latest version at http://www.byond.com/ before trying again.")
+		qdel(src)
+		return
+
 	// Change the way they should download resources.
 	if(config.resource_urls && config.resource_urls.len)
 		src.preload_rsc = pick(config.resource_urls)
@@ -173,6 +178,12 @@
 			winset(src, null, "command=\".configure graphics-hwmode on\"")
 
 	log_client_to_db()
+
+	if(isnum(player_age) && player_age == 0 && config.panic_bunker && !holder)
+		to_chat(src, "<span class='info'>We are currently not accepting new players</span>")
+		log_and_message_admins("Newly seen account [key] attempted to join during a panic bunker!")
+		qdel(src)
+		return
 
 	send_resources()
 

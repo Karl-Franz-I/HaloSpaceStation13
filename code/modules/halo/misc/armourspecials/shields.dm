@@ -9,7 +9,7 @@
 	var/mob/living/carbon/human/user
 
 /obj/effect/overlay/shields
-	icon = 'code/modules/halo/icons/species/Sangheili_Combat_Harness.dmi'
+	icon = 'code/modules/halo/covenant/species/sangheili/Sangheili_Combat_Harness.dmi'
 	icon_state = "shield_overlay"
 	plane = ABOVE_HUMAN_PLANE
 	layer = ABOVE_HUMAN_LAYER
@@ -18,27 +18,27 @@
 	icon = 'code/modules/halo/clothing/spartan_armour.dmi'
 
 /obj/effect/overlay/shields/unggoy
-	icon = 'code/modules/halo/icons/species/grunt_gear.dmi'
+	icon = 'code/modules/halo/covenant/species/unggoy/grunt_gear.dmi'
 
 /datum/armourspecials/shields
 	var/shieldstrength
 	var/totalshields
 	var/nextcharge
-	var/shield_recharge_delay = 40//The delay for the shields to start recharging from damage (Multiplied by 1.5 if shields downed entirely)
+	var/shield_recharge_delay = 10 SECONDS//The delay for the shields to start recharging from damage (Multiplied by 1.5 if shields downed entirely)
+	var/shield_recharge_ticktime = 1 SECOND //The delay between recharge ticks
 	var/obj/effect/overlay/shields/shieldoverlay = new /obj/effect/overlay/shields
 	var/image/mob_overlay
 	var/obj/item/clothing/suit/armor/special/connectedarmour
-	var/list/armourvalue
 	var/armour_state = SHIELD_IDLE
-	var/tick_recharge = 30
+	var/tick_recharge = 40
 	var/intercept_chance = 100
 	var/eva_mode_active = 0
 
 /datum/armourspecials/shields/New(var/obj/item/clothing/suit/armor/special/c) //Needed the type path for typecasting to use the totalshields var.
+	. = ..()
 	connectedarmour = c
 	totalshields = connectedarmour.totalshields
 	shieldstrength = totalshields
-	armourvalue = connectedarmour.armor
 	add_evamode_verb()
 
 /datum/armourspecials/shields/proc/add_evamode_verb() //Proc-ified to allow subtypes to disable EVA mode.
@@ -60,7 +60,6 @@
 		connectedarmour.visible_message("[toggler] reroutes their shields, prioritising defense.")
 		take_damage(shieldstrength) //drop our shields to 0
 		totalshields = connectedarmour.totalshields
-		armourvalue = connectedarmour.armor
 		connectedarmour.item_flags = initial(connectedarmour.item_flags)
 		connectedarmour.min_cold_protection_temperature = initial(connectedarmour.min_cold_protection_temperature)
 		connectedarmour.cold_protection = initial(connectedarmour.cold_protection)
@@ -74,20 +73,21 @@
 	var/mob/living/attacker = damage_source
 	if(istype(attacker) && damage < 5 && (attacker.a_intent == "help" || attacker.a_intent == "grab")) //We don't need to block helpful actions. (Or grabs)
 		return 0
+	var/obj/item/projectile/dam_proj = damage_source
+	if(istype(dam_proj) && dam_proj.shield_damage >0 && !take_damage(dam_proj.shield_damage,0))
+		return 0
 	if(take_damage(damage))
-		connectedarmour.armor = list(melee = 0, bullet = 0, laser = 0, energy = 0, bomb = 0, bio = 0, rad = 0) //This is needed because shields don't work if armour absorbs the blow instead.
-
 		//Melee damage through shields is reduced
 		var/obj/item/dam_source = damage_source
-		if(istype(dam_source) &&!istype(dam_source,/obj/item/projectile) && dam_source.loc.Adjacent(connectedarmour.loc))
+		if(istype(dam_source) &&!istype(dam_proj) && dam_source.loc.Adjacent(connectedarmour.loc))
+			var/original_dam = dam_source.force
 			dam_source.force *= SHIELD_MELEE_BYPASS_DAM_MOD
 			user.visible_message("<span class = 'warning'>[user]'s shields fail to fully absorb the melee attack!</span>")
 			spawn(2)
-				dam_source.force /= SHIELD_MELEE_BYPASS_DAM_MOD//Revert the damage reduction.
+				dam_source.force = original_dam
 			return 0
 		return 1
 	else
-		connectedarmour.armor =  armourvalue
 		return 0
 
 /datum/armourspecials/shields/proc/update_overlay(var/new_icon_state)
@@ -96,7 +96,7 @@
 		shieldoverlay.icon_state = new_icon_state
 		mob_overlay.overlays += shieldoverlay
 
-/datum/armourspecials/shields/proc/take_damage(var/damage)
+/datum/armourspecials/shields/proc/take_damage(var/damage,var/shield_gate = 1)
 	. = 0
 
 	//some shields dont have full coverage
@@ -121,13 +121,15 @@
 				shieldstrength = 0
 				playsound(user, 'code/modules/halo/sounds/Shields_Gone.ogg',100,0)
 				user.visible_message("<span class ='warning'>[user]'s [connectedarmour] shield collapses!</span>","<span class ='userdanger'>Your [connectedarmour] shields fizzle and spark, losing their protective ability!</span>")
+				if(!shield_gate)
+					. = 0
 			else
 				user.visible_message("<span class='warning'>[user]'s [connectedarmour] shields absorbs the force of the impact</span>","<span class = 'notice'>Your [connectedarmour] shields absorbs the force of the impact</span>")
 
 /datum/armourspecials/shields/proc/reset_recharge(var/extra_delay = 0)
 	//begin counting down the recharge
 	if(armour_state == SHIELD_IDLE)
-		GLOB.processing_objects += src
+		GLOB.processing_objects |= src
 
 	//update the shield effect overlay
 	if(shieldstrength > 0)
@@ -167,7 +169,7 @@
 				connectedarmour.visible_message("<span class = 'notice'>A faint hum emanates from [connectedarmour].</span>")
 			update_overlay("shield_overlay_recharge")
 			armour_state = SHIELD_RECHARGE
-		nextcharge = world.time + shield_recharge_delay
+		nextcharge = world.time + shield_recharge_ticktime
 
 	//finished recharging
 	if(shieldstrength >= totalshields)
@@ -175,11 +177,12 @@
 		armour_state = SHIELD_IDLE
 		GLOB.processing_objects -= src
 		update_overlay("shield_overlay")
+		user.update_icons()
 
 /datum/armourspecials/shields/tryemp(severity)
 	switch(severity)
 		if(1)
-			take_damage(totalshields)
+			take_damage(totalshields/2)
 			user.visible_message("<span class = 'warning'>[user.name]'s shields momentarily fail, the internal capacitors barely recovering.</span>")
 		if(2)
 			take_damage(totalshields)
@@ -188,8 +191,10 @@
 
 /datum/armourspecials/shields/spartan
 	shieldoverlay = new /obj/effect/overlay/shields/spartan
+	shield_recharge_delay = 5 SECONDS //much faster.
 
 /datum/armourspecials/shields/unggoy
+	shield_recharge_delay = 5 SECONDS //Equal to spartans because unggoy shields should be low capacity.
 	shieldoverlay = new /obj/effect/overlay/shields/unggoy
 
 #undef SHIELD_IDLE

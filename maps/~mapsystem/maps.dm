@@ -76,12 +76,13 @@ var/const/MAP_HAS_RANK = 2		//Rank system, also togglable
 	                                              // as defined in holodeck_programs
 	var/list/holodeck_restricted_programs = list() // as above... but EVIL!
 
-	var/list/allowed_spawns = list("Test Spawn")
-	var/default_spawn = "Test Spawn"
+	var/list/allowed_spawns = list(DEFAULT_SPAWNPOINT_ID)
+	var/default_spawn = DEFAULT_SPAWNPOINT_ID
 	var/flags = 0
 	var/evac_controller_type = /datum/evacuation_controller
 	var/use_overmap = 0		//If overmap should be used (including overmap space travel override)
 	var/overmap_size = 20		//Dimensions of overmap zlevel if overmap is used.
+	var/overmap_event_tokens = 0 //How many event type tokens do we generate and place on the overmap
 	var/overmap_z = 0		//If 0 will generate overmap zlevel on init. Otherwise will populate the zlevel provided.
 	var/overmap_event_areas = 0 //How many event "clouds" will be generated
 
@@ -89,11 +90,11 @@ var/const/MAP_HAS_RANK = 2		//Rank system, also togglable
 	var/list/lobby_screens = list()                 // The list of lobby screen to pick() from. If left unset the first icon state is always selected.
 	var/lobby_music/lobby_music                     // The track that will play in the lobby screen. Handed in the /setup_map() proc.
 
-	var/default_law_type = /datum/ai_laws/nanotrasen // The default lawset use by synth units, if not overriden by their laws var.
+	var/default_law_type = /datum/ai_laws/free // The default lawset use by synth units, if not overriden by their laws var.
 
 	var/id_hud_icons = 'icons/mob/hud.dmi' // Used by the ID HUD (primarily sechud) overlay.
 
-	var/use_global_covenant_comms = 1
+	var/list/allowed_gamemodes = list()
 
 	var/num_exoplanets = 0
 
@@ -157,7 +158,7 @@ var/const/MAP_HAS_RANK = 2		//Rank system, also togglable
 		empty_levels = list(world.maxz)
 	return pick(empty_levels)
 
-/datum/map/proc/get_default_spawn(var/client/C, var/datum/job/job_datum)
+/datum/map/proc/get_working_spawn(var/client/C, var/datum/job/job_datum)
 
 	//i've rewritten this proc to get the first working spawnpoint using all the checks from the job controller and new player spawning
 	//this should be safety proof
@@ -175,10 +176,11 @@ var/const/MAP_HAS_RANK = 2		//Rank system, also togglable
 			candidate = spawntypes()[display_name]
 
 		if(!candidate)
-			log_debug("MAP ERROR: spawntype \'[display_name]\' is enabled for the map \'[src]\' but does not exist!")
-			message_admins("MAP ERROR: spawntype \'[display_name]\' is enabled for the map \'[src]\' but does not exist!")
+			to_chat(C,"<span class = 'warning'>SPAWN ERROR: spawntype \'[display_name]\' is enabled for the map \'[src]\' but does not exist!</span>")
+			log_debug("SPAWN ERROR: spawntype \'[display_name]\' is enabled for the map \'[src]\' but does not exist!")
+			message_admins("SPAWN ERROR: spawntype \'[display_name]\' is enabled for the map \'[src]\' but does not exist!")
 
-		else if(candidate.check_job_spawning(job_datum.title))
+		else if(!candidate.check_job_spawning(job_datum.title))
 			//check if its viable to spawn in with this job
 			break
 
@@ -190,7 +192,8 @@ var/const/MAP_HAS_RANK = 2		//Rank system, also togglable
 	while(spawn_candidates.len > 0)
 
 	if(candidate)
-		return candidate.display_name
+		return candidate
 	else
-		log_debug("MAP WARNING: map \'[src]\' is not returning a global default spawn.")
-		message_admins("MAP WARNING: map \'[src]\' is not returning a global default spawn.")
+		to_chat(C,"<span class = 'warning'>SPAWN WARNING: map \'[src]\' is not returning a working spawn for [C] as [job_datum.type].</span>")
+		log_debug("SPAWN WARNING: map \'[src]\' is not returning a working spawn for [C] as [job_datum.type].")
+		message_admins("SPAWN WARNING: map \'[src]\' is not returning a working spawn for [C] as [job_datum.type].")

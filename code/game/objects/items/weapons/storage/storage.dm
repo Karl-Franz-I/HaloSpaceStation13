@@ -9,8 +9,8 @@
 	name = "storage"
 	icon = 'icons/obj/storage.dmi'
 	w_class = ITEM_SIZE_NORMAL
-	var/list/can_hold = new/list() //List of objects which this item can store (if set, it can't store anything else)
-	var/list/cant_hold = new/list() //List of objects which this item can't store (in effect only if can_hold isn't set)
+	var/list/can_hold = list() //List of objects which this item can store (if set, it can't store anything else)
+	var/list/cant_hold = list(/obj/item/weapon/grenade) //List of objects which this item can't store (in effect only if can_hold isn't set)
 
 	var/max_w_class = ITEM_SIZE_SMALL //Max size of objects that this object can store (in effect only if can_hold isn't set)
 	var/max_storage_space = null //Total storage cost of items this can hold. Will be autoset based on storage_slots if left null.
@@ -35,18 +35,19 @@
 /obj/item/weapon/storage/proc/update_slowdown()
 	if(!use_dynamic_slowdown)
 		return
-	var/list/inv = return_inv()
+	var/list/inv = contents //Originally used return_inv for searching contents of contents, but let's not do that for sanity's sake.
 	var/slowdown_total = 0
 	for(var/obj/A in inv)
+		if(A.w_class == 1)
+			continue
 		slowdown_total += base_storage_cost(A.w_class) * BACKPACK_SLOWDOWN_MOD
-	var/min_slowdown = 1.5//(max_storage_space*BACKPACK_SLOWDOWN_MOD)-1 //With backpack slowdown mod of 0.05, means you can carry max 2 normal before slowdown kicks in.
-	if(slowdown_total <= min_slowdown)
+	var/min_threshold_slowdown = (base_storage_cost(ITEM_SIZE_NORMAL) * BACKPACK_SLOWDOWN_MOD) * 2 //2 normals.
+	if(slowdown_total <= min_threshold_slowdown)
 		slowdown_total = 0
 	else
-		slowdown_total -= min_slowdown
+		slowdown_total -= min_threshold_slowdown
 
-	if(slowdown_general != slowdown_total)
-		slowdown_general = slowdown_total
+	slowdown_general = slowdown_total
 
 /obj/item/weapon/storage/MouseDrop(obj/over_object as obj)
 	if(!canremove)

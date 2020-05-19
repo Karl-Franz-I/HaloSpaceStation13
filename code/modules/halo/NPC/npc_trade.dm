@@ -11,7 +11,8 @@
 		for(var/obj/I in S.contents)
 			if(!check_tradeable(I))
 				return 0
-		return 1
+			. = 1
+		return .
 
 	if(O.trader_category && O.trader_category in trade_categories_by_name)
 		return 1
@@ -48,7 +49,7 @@
 		return total_value
 
 	//try and find it via the global controller
-	T = trade_controller.trade_items_by_type[O.type]
+	T = GLOB.trade_controller.trade_items_by_type[O.type]
 	if(T)
 		return T.value
 

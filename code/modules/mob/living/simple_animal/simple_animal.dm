@@ -46,7 +46,7 @@
 	//Atmos effect - Yes, you can make creatures that require phoron or co2 to survive. N2O is a trace gas and handled separately, hence why it isn't here. It'd be hard to add it. Hard and me don't mix (Yes, yes make all the dick jokes you want with that.) - Errorage
 	var/min_gas = list("oxygen" = 5)
 	var/max_gas = list("phoron" = 1, "carbon_dioxide" = 5)
-	var/unsuitable_atoms_damage = 2	//This damage is taken when atmos doesn't fit all the requirements above
+	var/unsuitable_atmos_damage = 2	//This damage is taken when atmos doesn't fit all the requirements above
 	var/speed = 0 //LETS SEE IF I CAN SET SPEEDS FOR SIMPLE MOBS WITHOUT DESTROYING EVERYTHING. Higher speed is slower, negative speed is faster
 
 	//LETTING SIMPLE ANIMALS ATTACK? WHAT COULD GO WRONG. Defaults to zero so Ian can still be cuddly
@@ -57,6 +57,10 @@
 	var/friendly = "nuzzles"
 	var/environment_smash = 0
 	var/resistance		  = 0	// Damage reduction
+	var/can_ignite = 0
+	var/ignite_overlay = "Generic_mob_burning"
+	var/image/fire_overlay_image
+	var/move_to_delay = 3 //delay for the automated movement.
 
 	//Null rod stuff
 	var/supernatural = 0
@@ -66,17 +70,69 @@
 	var/list/death_sounds = list()
 
 	var/respawning = 0
-	var/respawn_timer = 5 MINUTES
+	var/limited_respawn  = 0
+	var/respawn_timer = 3 MINUTES
 	var/turf/spawn_turf
+
+	var/parry_slice_objects = 0
 
 /mob/living/simple_animal/New()
 	. = ..()
-	if(respawning)
-		spawn_turf = get_turf(src)
-
-/mob/living/simple_animal/proc/SetRespawn()
-	respawning = 1
 	spawn_turf = get_turf(src)
+	apply_difficulty_setting()
+	create_pain_screams()
+
+/mob/living/simple_animal/verb/verb_set_leader()
+	set name = "Follow Me"
+	set category = "AI Command"
+	set src in range(7)
+
+	var/mob/living/user = usr
+	if(!istype(user))
+		return
+	if(user.faction != faction)
+		to_chat(user,"<span class = 'notice'>[name] is not in your faction!</span>")
+		return
+	if(leader_follow && leader_follow.stat == CONSCIOUS)
+		if(user == leader_follow)
+			set_leader(null)
+		else
+			to_chat(user,"<span class = 'notice'>[name] is already following [leader_follow.name].</span>")
+			return
+	else
+		set_leader(user)
+
+/mob/living/simple_animal/verb/verb_hold_fire()
+	set name = "Hold Fire"
+	set category = "AI Command"
+	set src in range(7)
+
+	var/mob/living/user = usr
+	if(!istype(user))
+		return
+	if(user.faction != faction)
+		to_chat(user,"<span class = 'notice'>[name] is not in your faction!</span>")
+		return
+	toggle_hold_fire()
+
+/mob/living/simple_animal/proc/set_leader(var/mob/leader)
+	var/msg = null
+	if(!leader)
+		if(leader_follow)
+			msg = "[name] stops following [leader_follow.name]"
+		else
+			msg = "[name] stops following."
+	if(isnull(msg))
+		msg ="[name] starts following [leader.name]"
+	visible_message("<span class = 'notice'>[msg]</span>")
+	leader_follow = leader
+
+/mob/living/simple_animal/proc/toggle_hold_fire()
+	hold_fire = !hold_fire
+	if(hold_fire == FALSE)
+		visible_message("<span class = 'danger'>[src.name] seems to become more aggressive.</span>")
+	else
+		visible_message("<span class = 'notice'>[src.name] seems to become more docile.</span>")
 
 /mob/living/simple_animal/Life()
 	..()
@@ -88,8 +144,10 @@
 			switch_from_dead_to_living_mob_list()
 			set_stat(CONSCIOUS)
 			set_density(1)
-		else if(respawning)
+		else if(respawning || limited_respawn)
 			if(world.time > timeofdeath + respawn_timer)
+				if(limited_respawn > 0)
+					limited_respawn--
 				health = maxHealth
 				src.forceMove(spawn_turf)
 		return 0
@@ -113,19 +171,22 @@
 			turns_since_move++
 			if(turns_since_move >= turns_per_move)
 				if(!(stop_automated_movement_when_pulled && pulledby)) //Soma animals don't move when pulled
-					var/moving_to = 0 // otherwise it always picks 4, fuck if I know.   Did I mention fuck BYOND
-					var/list/dirs_pickfrom = GLOB.cardinal
-					var/allow_move = 0
-					while(!allow_move)
-						if(dirs_pickfrom.len == 0)
-							allow_move = 1
-							break
-						moving_to = pick(dirs_pickfrom)
-						if(!istype(get_step(src,moving_to),/turf/simulated/open))
-							allow_move = 1
-					set_dir(moving_to)			//How about we turn them the direction they are moving, yay.
-					Move(get_step(src,moving_to))
-					turns_since_move = 0
+					if(handle_leader_pathing())
+					else
+						var/moving_to = 0 // otherwise it always picks 4, fuck if I know.   Did I mention fuck BYOND
+						var/list/dirs_pickfrom = GLOB.cardinal.Copy()
+						var/allow_move = 0
+						while(!allow_move)
+							if(dirs_pickfrom.len == 0)
+								allow_move = 1
+								break
+							moving_to = pick(dirs_pickfrom)
+							if(!istype(get_step(src,moving_to),/turf/simulated/open) && isnull(locate(/obj/structure/bardbedwire) in moving_to))
+								allow_move = 1
+							dirs_pickfrom -= moving_to
+						set_dir(moving_to)			//How about we turn them the direction they are moving, yay.
+						Move(get_step(src,moving_to))
+						turns_since_move = 0
 
 	//Speaking
 	if(!client && speak_chance)
@@ -175,7 +236,7 @@
 		fire_alert = 0
 
 	if(!atmos_suitable)
-		adjustBruteLoss(unsuitable_atoms_damage)
+		adjustBruteLoss(unsuitable_atmos_damage)
 	return 1
 
 /mob/living/simple_animal/proc/handle_supernatural()
@@ -206,11 +267,16 @@
 
 /mob/living/simple_animal/bullet_act(var/obj/item/projectile/Proj)
 	if(!Proj || Proj.nodamage)
-		return
-
-	adjustBruteLoss(Proj.damage)
+		return 0
+	var/oldhealth = health
+	if(Proj.damtype == BURN)
+		adjustFireLoss(max(0,Proj.damage-max(0,resistance-Proj.armor_penetration)))
+	else
+		adjustBruteLoss(max(0,Proj.damage-max(0,resistance-Proj.armor_penetration)))
+	if(oldhealth == health)
+		visible_message("<span class = 'notice'>[src] shrugs off \the [Proj]'s impact.</span>")
 	do_pain_scream()
-	return 0
+	return 1
 
 /mob/living/simple_animal/attack_hand(mob/living/carbon/human/M as mob)
 	..()
@@ -252,7 +318,7 @@
 							M.show_message("<span class='notice'>[user] applies the [MED] on [src].</span>")
 		else
 			to_chat(user, "<span class='notice'>\The [src] is dead, medical items won't bring \him back to life.</span>")
-		return
+		return 0
 	if((meat_type || harvest_products.len) && (stat == DEAD))	//if the animal has a meat, and if it is dead.
 		if(istype(O, /obj/item/weapon/material/knife) || istype(O, /obj/item/weapon/material/knife/butch))
 			harvest(user)
@@ -261,12 +327,12 @@
 			visible_message("<span class='notice'>[user] gently taps [src] with \the [O].</span>")
 		else
 			O.attack(src, user, user.zone_sel.selecting)
-
+			return 1
 /mob/living/simple_animal/hit_with_weapon(obj/item/O, mob/living/user, var/effective_force, var/hit_zone)
 
 	visible_message("<span class='danger'>\The [src] has been attacked with \the [O] by [user].</span>")
 
-	if(O.force <= resistance)
+	if(O.force <= resistance-O.armor_penetration)
 		to_chat(user, "<span class='danger'>This weapon is ineffective, it does no damage.</span>")
 		return 2
 
@@ -297,6 +363,9 @@
 		stat(null, "Health: [round((health / maxHealth) * 100)]%")
 
 /mob/living/simple_animal/death(gibbed, deathmessage = "dies!", show_dead_message = 1)
+	if(istype(loc,/obj/vehicles))
+		var/obj/vehicles/v = loc
+		v.exit_vehicle(src,1)
 	timeofdeath = world.time
 	icon_state = icon_dead
 	density = 0
@@ -350,6 +419,8 @@
 		var/obj/mecha/M = target_mob
 		if (M.occupant)
 			return (0)
+	if(istype(target_mob,/obj/vehicles))
+		return (0)
 	return 1
 
 /mob/living/simple_animal/say(var/message)
@@ -359,7 +430,7 @@
 
 	message = sanitize(message)
 
-	..(message, null, verb)
+	..(message, species_language, verb)
 
 /mob/living/simple_animal/get_speech_ending(verb, var/ending)
 	return verb
@@ -388,14 +459,24 @@
 			gib()
 
 /mob/living/simple_animal/handle_fire()
-	return
+	if(can_ignite)
+		. = ..()
 
 /mob/living/simple_animal/update_fire()
-	return
+	overlays -= fire_overlay_image
+	fire_overlay_image = null
+	if(on_fire)
+		var/image/standing = overlay_image('icons/mob/OnFire.dmi', ignite_overlay, RESET_COLOR)
+		fire_overlay_image = standing
+		overlays += fire_overlay_image
+
 /mob/living/simple_animal/IgniteMob()
-	return
+	if(can_ignite)
+		. = ..()
+
 /mob/living/simple_animal/ExtinguishMob()
-	return
+	if(can_ignite)
+		. = ..()
 
 /mob/living/simple_animal/updatehealth()
 	. = ..()

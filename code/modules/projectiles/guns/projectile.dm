@@ -11,10 +11,11 @@
 	origin_tech = list(TECH_COMBAT = 2, TECH_MATERIAL = 2)
 	w_class = ITEM_SIZE_NORMAL
 	matter = list(DEFAULT_WALL_MATERIAL = 1000)
-	screen_shake = 1
+	screen_shake = 0.25
 
 	var/caliber = "357"		//determines which casings will fit
 	var/handle_casings = EJECT_CASINGS	//determines how spent casings should be handled
+	var/ejection_angle = 90 //If we handle casings by ejecting them, which direction should we throw them? Angle between 1 to 360
 	var/load_method = SINGLE_CASING|SPEEDLOADER //1 = Single shells, 2 = box or quick loader, 3 = magazine
 	var/obj/item/ammo_casing/chambered = null
 
@@ -90,7 +91,7 @@
 	..()
 	if(chambered)
 		chambered.expend()
-		process_chambered()
+	process_chambered()
 
 /obj/item/weapon/gun/projectile/handle_click_empty()
 	..()
@@ -98,18 +99,18 @@
 
 /obj/item/weapon/gun/projectile/proc/process_chambered()
 	if (!chambered) return
-
-	switch(handle_casings)
-		if(EJECT_CASINGS) //eject casing onto ground.
-			chambered.loc = get_turf(src)
-		if(CYCLE_CASINGS) //cycle the casing back to the end.
-			if(ammo_magazine)
-				ammo_magazine.stored_ammo += chambered
-			else
-				loaded += chambered
-		if(CASELESS)
-			qdel(chambered)
-
+	if(handle_casings == EJECT_CASINGS)
+		atom_despawner.mark_for_despawn(chambered)
+		var/obj/item/ammo_casing/to_eject = chambered
+		spawn()
+			to_eject.eject(get_turf(src), angle2dir(dir2angle(loc.dir)+ejection_angle))
+	if(handle_casings == CYCLE_CASINGS)
+		if(ammo_magazine)
+			ammo_magazine.stored_ammo += chambered
+		else
+			loaded += chambered
+	if(handle_casings == CASELESS)
+		qdel(chambered)
 	if(handle_casings != HOLD_CASINGS)
 		chambered = null
 
@@ -226,6 +227,10 @@
 	if(firemodes.len > 1)
 		..()
 	else
+		if(stored_targ)
+			to_chat(user,"<span class = 'notice'>You stop your sustained burst from [src]</span>")
+			stored_targ = null
+			return
 		unload_ammo(user)
 
 /obj/item/weapon/gun/projectile/attack_hand(mob/user as mob)

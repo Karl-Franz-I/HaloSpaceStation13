@@ -1,5 +1,7 @@
 #define VEHICLE_CONNECT_DELAY 7.5 SECONDS
 #define VEHICLE_ITEM_LOAD 3.0 SECONDS
+#define TAKEOFF_LAND_DELAY 4 SECONDS
+#define WAYPOINT_FLIGHT_DELAY 7.5 SECONDS
 
 /obj/vehicles/air
 	name = "Dropship"
@@ -15,6 +17,8 @@
 	plane = ABOVE_HUMAN_PLANE
 
 	active = 0
+
+	can_traverse_zs = 1
 
 	var/faction = null //The faction this vehicle belongs to. Setting this will restrict landing to faction-owned and Civilian points only
 
@@ -58,6 +62,10 @@
 		return
 	if(!(usr in get_occupants_in_position("driver")))
 		to_chat(usr,"<span class = 'notice'>You need to be the driver of [name] to do that!</span>")
+		return
+	to_chat(usr,"<span class = 'notice'>You start prepping [src] for [active ? "landing" : "takeoff"].</span>")
+	visible_message("<span class = 'notice'>[src] starts prepping for [active?"landing":"takeoff"].</span>")
+	if(!do_after(usr,TAKEOFF_LAND_DELAY,src))
 		return
 	if(active)
 		land_vehicle()
@@ -104,16 +112,20 @@
 	if(!active)
 		to_chat(usr,"<span class = 'notice'>You need to be in the air to do that!.</span>")
 		return
+	to_chat(usr,"<span class = 'notice'>You start prepping [src] for long-range flight..</span>")
+	visible_message("<span class = 'notice'>[src] starts prepping for long-range flight..</span>")
+	if(!do_after(usr,WAYPOINT_FLIGHT_DELAY,src))
+		return
 	proc_fly_to_waypoint()
 
 /obj/vehicles/air/inactive_pilot_effects()
 	//Crashing this vehicle with potential casualties.
+	active = 0
+	if(elevation <= 0)//Nocrash if we're not flying
+		return
 	visible_message("<span class = 'danger'>[name] spirals towards the ground, engines uncontrolled!!</span>")
 	for(var/mob/living/carbon/human/h in occupants)
-		if(prob(15))
-			h.adjustBruteLoss(rand(25,50))
-		else
-			h.adjustBruteLoss(rand(5,20))
+		h.adjustBruteLoss(rand(20,50))
 	kick_occupants()
 	land_vehicle(1)
 	if(crash_sound)

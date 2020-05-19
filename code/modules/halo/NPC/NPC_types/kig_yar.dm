@@ -2,6 +2,7 @@
 /mob/living/simple_animal/npc/kig_yar
 	icon_state = "Kig-Yar_m"
 	species_type = /datum/species/kig_yar
+	npc_job_title = "NPC Kig-Yar"
 	jumpsuits = list(/obj/item/clothing/under/kigyar/armless)
 	accepted_currency = "gekz"
 	emote_hear = list("hisses softly","blinks and narrows their eyes","suns themself")
@@ -20,13 +21,16 @@
 	hat_chance = 100
 	wander = 0
 	trade_categories_by_name =  list("weapon_cov")
+	interact_screen = 2
 
 /mob/living/simple_animal/npc/kig_yar/ore
 	npc_job_title = "NPC Kig'Yar ore trader"
 	wander = 0
 	trade_categories_by_name =  list("ore")
+	interact_screen = 2
 
 /mob/living/simple_animal/npc/kig_yar/crops
 	npc_job_title = "NPC Kig'Yar crops trader"
 	wander = 0
 	trade_categories_by_name =  list("crops")
+	interact_screen = 2

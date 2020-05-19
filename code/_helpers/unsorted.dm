@@ -511,10 +511,6 @@ Turf and target are seperate in case you want to teleport some distance from a t
 /proc/between(var/low, var/middle, var/high)
 	return max(min(middle, high), low)
 
-proc/arctan(x)
-	var/y=arcsin(x/sqrt(1+x*x))
-	return y
-
 //returns random gauss number
 proc/GaussRand(var/sigma)
   var/x,y,rsq
@@ -561,10 +557,13 @@ proc/GaussRandRound(var/sigma,var/roundto)
 
 /proc/is_blocked_turf(var/turf/T)
 	var/cant_pass = 0
-	if(T.density) cant_pass = 1
-	for(var/atom/A in T)
-		if(A.density)//&&A.anchored
-			cant_pass = 1
+	if(T.density)
+		cant_pass = 1
+	else
+		for(var/atom/A in T)
+			if(A.density)//&&A.anchored
+				cant_pass = 1
+				break
 	return cant_pass
 
 /proc/get_step_towards2(var/atom/ref , var/atom/trg)

@@ -18,19 +18,22 @@
 	name = "Dual Wield Placeholder"
 	desc = "You're holding two guns in such a way as to allow you to fire both at once."
 
+	w_class = 9
+	slot_flags = 0
+
 	one_hand_penalty = -1
 	var/list/weapons_wielded = list()
-	var/weapon_delay = 2 //The time in ticks between each weapon firing.
 
 /obj/item/weapon/gun/dual_wield_placeholder/New()
-	.=..()
+	. =..()
 	name = ""
 
-/obj/item/weapon/gun/dual_wield_placeholder/proc/add_wielding_weapon(var/obj/weapon,var/mob/user)
+/obj/item/weapon/gun/dual_wield_placeholder/proc/add_wielding_weapon(var/obj/item/weapon/gun/weapon,var/mob/user)
 	user.drop_from_inventory(weapon)
 	contents += weapon
 	weapons_wielded += weapon
 	name += "+ [weapon.name] "
+	fire_delay = max(fire_delay,weapon.fire_delay + weapon.burst * weapon.burst_delay)
 	generate_icon()
 
 /obj/item/weapon/gun/dual_wield_placeholder/proc/generate_icon()
@@ -59,11 +62,18 @@
 
 	return newimage
 
-/obj/item/weapon/gun/dual_wield_placeholder/Fire(atom/target, mob/living/user, clickparams, pointblank, reflex)
+/obj/item/weapon/gun/dual_wield_placeholder/Fire(atom/target, mob/living/user, clickparams, pointblank=0, reflex=0)
+	var/held_twohanded = (user.can_wield_item(src) && src.is_held_twohanded(user))
+	if(one_hand_penalty == -1)
+		if(!held_twohanded)
+			to_chat(user,"<span class = 'notice'>You can't fire dual-wielded weapons with an occupied offhand!</span>")
+			return
+	next_fire_time = world.time + fire_delay
 	for(var/obj/item/weapon/gun/weapon in weapons_wielded)
 		var/index = weapons_wielded.Find(weapon)
-		spawn((weapon_delay * (index - 1)))
-			weapon.Fire(target,user,clickparams,pointblank,reflex)
+		sleep((weapon.fire_delay) * index)
+		weapon.next_fire_time = 0
+		weapon.afterattack(target, user, pointblank, clickparams)
 
 /obj/item/weapon/gun/dual_wield_placeholder/update_twohanding() //Overriden to do nothing so the name doesn't get reset to "dual wield placeholder"
 	return

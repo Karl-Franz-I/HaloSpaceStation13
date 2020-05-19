@@ -127,6 +127,8 @@
 	var/blinded = null
 	var/ear_deaf = null		//Carbon
 
+	var/datum/visualnet/our_visualnet
+
 //The last mob/living/carbon to push/drag/grab this mob (mostly used by slimes friend recognition)
 	var/mob/living/carbon/LAssailant = null
 
@@ -167,3 +169,5 @@
 	var/nabbing = 0  // Whether a creature with a CAN_NAB tag is grabbing normally or in nab mode.
 
 	var/last_z = 0
+
+	var/currently_firing = 0 //Applied onto the movement delay, modified by guns when firing

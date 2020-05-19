@@ -16,6 +16,8 @@ var/global/datum/controller/occupations/job_master
 		//Debug info
 	var/list/job_debug = list()
 
+	var/list/jobs_poplocked = list()
+
 	var/alt_titled_jobs = 0
 
 	proc/SetupOccupations(var/setup_titles = 0)
@@ -60,6 +62,9 @@ var/global/datum/controller/occupations/job_master
 			//count how many jobs have alt titles so we can format the character setup screen more nicely
 			if(job.alt_titles && job.alt_titles.len > 1)
 				alt_titled_jobs += 1
+
+			if(job.poplock_divisor > 1)
+				jobs_poplocked += job
 
 		return 1
 
@@ -112,6 +117,28 @@ var/global/datum/controller/occupations/job_master
 				job.current_positions++
 				if(job.track_players)
 					job.assign_player(player.mind)
+				for(var/datum/job/poplocked in jobs_poplocked)
+					var/player_pop_nonfaction = 0
+					var/player_pop_faction = 0
+					for(var/client/C in GLOB.clients)
+						if(!C.mob || !istype(C.mob,/mob/living) || isnull(poplocked.spawn_faction))
+							continue
+						if(C.mob.faction == poplocked.spawn_faction)
+							player_pop_faction++
+							continue
+						player_pop_nonfaction++
+					var/hostilefaction_multiplier = 1
+					if(player_pop_nonfaction > 0 && player_pop_faction > 0)
+						hostilefaction_multiplier = min(round(player_pop_nonfaction / player_pop_faction),1)
+					var/amt_job = max(round((player_pop_nonfaction * hostilefaction_multiplier)/poplocked.poplock_divisor),0)
+
+					if(amt_job > 0)
+						if(poplocked.total_positions == 0)
+							FreeRole(poplocked.title)
+							amt_job--
+						else
+							poplocked.total_positions = amt_job
+
 				return 1
 		Debug("AR has failed, Player: [player], Rank: [rank]")
 		return 0
@@ -127,8 +154,9 @@ var/global/datum/controller/occupations/job_master
 		Debug("Running FOC, Job: [job], Level: [level], Flag: [flag]")
 		var/list/candidates = list()
 		for(var/mob/new_player/player in unassigned)
-			if(jobban_isbanned(player, job.title, job))
-				Debug("FOC isbanned failed, Player: [player]")
+			var/jobban_reason = jobban_isbanned(player, job.title, job.is_whitelisted, job)
+			if(jobban_reason)
+				Debug("FOC isbanned failed, Player: [player] ([jobban_reason])")
 				continue
 			if(!job.player_old_enough(player.client))
 				Debug("FOC player not old enough, Player: [player]")
@@ -353,6 +381,9 @@ var/global/datum/controller/occupations/job_master
 				player.ready = 0
 				player.new_player_panel_proc()
 				unassigned -= player
+			to_chat(player,"<span class = 'warning'>SPAWN WARNING: Unable to assign you a job, you are returning to lobby.</span>")
+			log_debug("SPAWN WARNING: Unable to assign [player] a job, they are returning to lobby.")
+			message_admins("SPAWN WARNING: Unable to assign [player] a job, they are returning to lobby.")
 		return 1
 
 
@@ -402,6 +433,13 @@ var/global/datum/controller/occupations/job_master
 			//Equip job items.
 			job.setup_account(H)
 			job.equip(H, H.mind ? H.mind.role_alt_title : "", H.char_branch)
+			if(isnull(H))
+				return
+			if(job.lace_access && isnull(H.GetLace()))
+				H.create_stack(job.access)
+				var/obj/item/weapon/card/id/my_id = H.GetIdCard()
+				if(my_id) //If we're using lace access storage, null out our ID's accesses.
+					my_id.access = list()
 			job.apply_fingerprints(H)
 
 			if(H.char_rank && H.char_rank.accessory)
@@ -433,19 +471,10 @@ var/global/datum/controller/occupations/job_master
 
 		H.job = rank
 
-		if(!joined_late || job.latejoin_at_spawnpoints)
-			var/obj/S = get_roundstart_spawnpoint(rank)
-
-			if(istype(S, /obj/effect/landmark/start) && istype(S.loc, /turf))
-				H.forceMove(S.loc)
-			else
-				var/datum/spawnpoint/spawnpoint = get_spawnpoint_for(H.client, job)
-				H.forceMove(pick(spawnpoint.turfs))
-
-			// Moving wheelchair if they have one
-			if(H.buckled && istype(H.buckled, /obj/structure/bed/chair/wheelchair))
-				H.buckled.forceMove(H.loc)
-				H.buckled.set_dir(H.dir)
+		// Moving wheelchair if they have one
+		if(H.buckled && istype(H.buckled, /obj/structure/bed/chair/wheelchair))
+			H.buckled.forceMove(H.loc)
+			H.buckled.set_dir(H.dir)
 
 		// If they're head, give them the account info for their department
 		if(H.mind && job.head_position)
@@ -523,7 +552,7 @@ var/global/datum/controller/occupations/job_master
 			if(H.char_branch && H.char_branch.email_domain)
 				domain = H.char_branch.email_domain
 			else
-				domain = "freemail.nt"
+				domain = job.get_email_domain()
 			var/sanitized_name = sanitize(replacetext(replacetext(lowertext(H.real_name), " ", "."), "'", ""))
 			var/complete_login = "[sanitized_name]@[domain]"
 
@@ -629,76 +658,41 @@ var/global/datum/controller/occupations/job_master
  *  preference is not set, or the preference is not appropriate for the rank, in
  *  which case a fallback will be selected.
  */
-/datum/controller/occupations/proc/get_spawnpoint_for(var/client/C, var/datum/job/job_datum)
+/datum/controller/occupations/proc/get_spawnpoint_for(var/client/C, var/datum/job/job_datum, var/joined_late = 0)
 
-	if(!C)
-		CRASH("Null client passed to get_spawnpoint_for() proc!")
-	if(!istype(job_datum))
-		CRASH("Incorrect job typepassed to get_spawnpoint_for() proc for [C]! Recieved \'[job_datum]\' but expected /datum/job/")
+	var/datum/spawnpoint/candidate
+	var/spawnpoint_id = DEFAULT_SPAWNPOINT_ID
 
-	var/rank = job_datum.title
-	var/mob/H = C.mob
-	var/spawnpoint = C.prefs.spawnpoint
-	var/datum/spawnpoint/spawnpos
+	//check if this job has a spawnpoint override
+	if(job_datum && job_datum.spawnpoint_override)
+		//to_chat(H,"<span class = 'notice'>Job has spawnpoint override set. Ignoring preference-set spawnpoint.</span>")
+		spawnpoint_id = job_datum.spawnpoint_override
 
-	if(job_datum.spawnpoint_override)
-		to_chat(H,"<span class = 'notice'>Job has spawnpoint override set. Ignoring preference-set spawnpoint.</span>")
-		var/datum/spawnpoint/candidate = spawntypes()[job_datum.spawnpoint_override]
-		if(candidate)
-			if(candidate.check_job_spawning(rank))
-				return candidate
-			else
-				to_chat(H,"<span class = 'warning'>ERROR: Spawnpoint override set to \'[job_datum.spawnpoint_override]\', yet spawning is not allowed as \'[rank]\'!</span>")
+	//grab the spawn
+	candidate = spawntypes()[spawnpoint_id]
+
+	if(candidate)
+		var/retval = candidate.check_job_spawning(job_datum, joined_late)
+		if(!retval)
+			return candidate
 		else
-			to_chat(H,"<span class = 'warning'>ERROR: Spawnpoint override set, yet spawnpoint does not exist!</span>")
+			to_chat(C,"<span class = 'warning'>SPAWN WARNING: Spawnpoint set to \'[spawnpoint_id]\', yet spawning as \'[job_datum ? job_datum.type : "NULL JOB"]\' is blocked! Reason: [retval] (client: [C])</span>")
+			log_debug("SPAWN WARNING: Spawnpoint set to \'[spawnpoint_id]\', yet spawning as \'[job_datum ? job_datum.type : "NULL JOB"]\' is blocked! (client: [C]) Reason: [retval]")
+			message_admins("SPAWN WARNING: Spawnpoint set to \'[spawnpoint_id]\', yet spawning as \'[job_datum ? job_datum.type : "NULL JOB"]\' is blocked! (client: [C]) Reason: [retval]")
+	else
+		to_chat(C,"<span class = 'warning'>SPAWN ERROR: Spawnpoint set to [spawnpoint_id], yet spawnpoint does not exist!</span> (client: [C])")
+		log_debug("SPAWN ERROR: Spawnpoint set to [spawnpoint_id], yet spawnpoint does not exist! (client: [C], job:[job_datum.type])")
+		message_admins("SPAWN ERROR: Spawnpoint set to [spawnpoint_id], yet spawnpoint does not exist! (client: [C], job:[job_datum.type])")
 
-	if(spawnpoint == DEFAULT_SPAWNPOINT_ID)
-		spawnpoint = GLOB.using_map.get_default_spawn(C, job_datum)
+	/*
+	candidate = GLOB.using_map.get_working_spawn(C, job_datum)
 
-	if(spawnpoint)
-		if(!(spawnpoint in GLOB.using_map.allowed_spawns))
-			if(H)
-				to_chat(H, "<span class='warning'>Your chosen spawnpoint ([C.prefs.spawnpoint]) is unavailable for the current map. Spawning you at one of the enabled spawn points instead. To resolve this error head to your character's setup and choose a different spawn point.</span>")
-			spawnpos = null
-		else
-			spawnpos = spawntypes()[spawnpoint]
-
-	if(spawnpos && !spawnpos.check_job_spawning(rank))
-		if(H)
-			to_chat(H, "<span class='warning'>Your chosen spawnpoint ([spawnpos.display_name]) is unavailable for your chosen job ([rank]). Spawning you at another spawn point instead.</span>")
-		spawnpos = null
-
-	if(!spawnpos)
-		// Step through all spawnpoints and pick first appropriate for job
-		for(var/spawntype in GLOB.using_map.allowed_spawns)
-			var/datum/spawnpoint/candidate = spawntypes()[spawntype]
-			if(!candidate)
-				log_debug("JOB CONTROLLER ERROR: spawntype \'[spawntype]\' is enabled for the current map \'[GLOB.using_map]\' but does not exist!")
-				message_admins("JOB CONTROLLER ERROR: spawntype \'[spawntype]\' is enabled for the current map \'[GLOB.using_map]\' but does not exist!")
-				continue
-			if(candidate.check_job_spawning(rank))
-				spawnpos = candidate
-				break
-			else
-				message_admins("JOB CONTROLLER WARNING: spawntype \'[spawntype]\' is currently not allowing spawning for [rank]. Inform Cael if you get this warning longer than 1 week.")
-
-	if(!spawnpos)
+	if(!candidate)
 		// Pick at random from all the (wrong) spawnpoints, just so we have one
 		warning("Could not find an appropriate spawnpoint for job [rank].")
-		spawnpos = spawntypes()[pick(GLOB.using_map.allowed_spawns)]
 
-	return spawnpos
+	return candidate
+	*/
 
 /datum/controller/occupations/proc/GetJobByType(var/job_type)
 	return occupations_by_type[job_type]
-
-/datum/controller/occupations/proc/get_roundstart_spawnpoint(var/rank)
-	var/list/loc_list = list()
-	for(var/obj/effect/landmark/start/sloc in landmarks_list)
-		if(sloc.name != rank)	continue
-		if(locate(/mob/living) in sloc.loc)	continue
-		loc_list += sloc
-	if(loc_list.len)
-		return pick(loc_list)
-	else
-		return locate("start*[rank]") // use old stype

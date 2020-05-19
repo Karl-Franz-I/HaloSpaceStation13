@@ -1,24 +1,4 @@
 
-/decl/hierarchy/outfit/job/marine
-	name = "Geminus Garrisson Marine"
-
-	uniform = /obj/item/clothing/under/unsc/marine_fatigues
-	suit = /obj/item/clothing/suit/storage/marine
-	head = /obj/item/clothing/head/helmet/marine
-	glasses = /obj/item/clothing/glasses/hud/tactical
-	shoes = /obj/item/clothing/shoes/marine
-	belt = /obj/item/weapon/storage/belt/marine_ammo
-	l_pocket = /obj/item/device/encryptionkey/shipcom
-	flags = 0
-
-/decl/hierarchy/outfit/job/marine/leader
-	name = "Marine - Squad Leader"
-
-	head = /obj/item/clothing/head/helmet/marine/visor
-	r_pocket = /obj/item/squad_manager
-
-	flags = 0
-
 /decl/hierarchy/outfit/job/colonist
 	name = "Colonist"
 
@@ -27,8 +7,6 @@
 	belt = /obj/item/weapon/storage/wallet/random
 	shoes = /obj/item/clothing/shoes/brown
 	pda_slot = null
-
-	flags = 0
 
 /decl/hierarchy/outfit/job/colonist/equip_id(mob/living/carbon/human/H)
 	var/obj/item/weapon/card/id/C = ..()
@@ -102,7 +80,7 @@
 /decl/hierarchy/outfit/job/police
 	name = "GCPD Officer"
 
-	head = /obj/item/clothing/head/soft/sec/corp
+	head = /obj/item/clothing/head/soft/police
 	uniform = /obj/item/clothing/under/police
 	belt = /obj/item/weapon/gun/projectile/m7_smg/rubber
 	shoes = /obj/item/clothing/shoes/dutyboots
@@ -110,5 +88,22 @@
 	l_pocket = /obj/item/clothing/accessory/badge/police
 	l_ear = /obj/item/device/radio/headset/police
 	id_type = /obj/item/weapon/card/id/security/warden
+	gloves = /obj/item/clothing/gloves/thick/swat/police
+
+	flags = 0
+
+/decl/hierarchy/outfit/job/cop
+	name = "GCPD Chief of Police"
+
+	head = /obj/item/clothing/head/soft/police
+	uniform = /obj/item/clothing/under/police
+	belt = /obj/item/weapon/gun/projectile/m6c_magnum_s
+	shoes = /obj/item/clothing/shoes/dutyboots
+	pda_slot = null
+	l_pocket = /obj/item/clothing/accessory/badge/police
+	l_ear = /obj/item/device/radio/headset/police
+	id_type = /obj/item/weapon/card/id/security/head
+	suit = /obj/item/clothing/suit/armor/vest/police_medium
+	gloves = /obj/item/clothing/gloves/thick/swat/police
 
 	flags = 0

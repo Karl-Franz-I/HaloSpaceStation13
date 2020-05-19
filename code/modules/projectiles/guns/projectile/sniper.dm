@@ -14,17 +14,17 @@
 	max_shells = 1
 	ammo_type = /obj/item/ammo_casing/a145_ap/tracerless
 	one_hand_penalty = -1
-	accuracy = -2
-	scoped_accuracy = 5 //increased accuracy over the LWAP because only one shot
+	accuracy = -5
+	scoped_accuracy = 10 //increased accuracy over the LWAP because only one shot
 	var/bolt_open = 0
 	wielded_item_state = "heavysniper-wielded" //sort of placeholder
 
 /obj/item/weapon/gun/projectile/heavysniper/update_icon()
 	..()
 	if(bolt_open)
-		icon_state = "heavysniper-open"
+		icon_state = "[initial(icon_state)]-open"
 	else
-		icon_state = "heavysniper"
+		icon_state = "[initial(icon_state)]"
 
 /obj/item/weapon/gun/projectile/heavysniper/attack_self(mob/user as mob)
 	playsound(src.loc, 'sound/weapons/flipblade.ogg', 50, 1)

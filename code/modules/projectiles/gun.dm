@@ -5,9 +5,7 @@
 	If the fire mode value for a setting is null, it will be replaced with the initial value of that gun's variable when the firemode is created.
 	Obviously not compatible with variables that take a null value. If a setting is not present, then the corresponding var will not be modified.
 */
-
-#define SPECIES_LARGE list(/datum/species/sangheili,/datum/species/brutes,/datum/species/spartan,/datum/species/orion)
-
+#define BASE_MOVEDELAY_MOD_APPLYFOR_TIME 0.75 SECONDS
 
 /datum/firemode
 	var/name = "default"
@@ -54,13 +52,14 @@
 	attack_verb = list("struck", "hit", "bashed")
 	zoomdevicename = "scope"
 
-	slowdown_general = 0.5 //Guns R heavy.
+	slowdown_general = 0.25 //Guns R heavy.
 
 	var/unique_name
 	var/burst = 1
 	var/fire_delay = 6 	//delay after shooting before the gun can be used again
 	var/burst_delay = 2	//delay between shots, if firing in bursts
-	var/move_delay = 1
+	var/move_delay = 0
+	var/move_delay_malus = 0.5
 	var/fire_sound = 'sound/weapons/gunshot/gunshot.ogg'
 	var/fire_sound_text = "gunshot"
 	var/screen_shake = 0 //shouldn't be greater than 2 unless zoomed
@@ -85,7 +84,9 @@
 	var/tmp/list/mob/living/aim_targets //List of who yer targeting.
 	var/tmp/mob/living/last_moved_mob //Used to fire faster at more than one person.
 	var/tmp/told_cant_shoot = 0 //So that it doesn't spam them with the fact they cannot hit them.
-	var/tmp/lock_time = -100
+	var/lock_time = 1 SECOND
+
+	var/last_elevation = BASE_ELEVATION
 
 	//Attachment System Stuff//
 	var/list/attachment_slots = list()
@@ -97,6 +98,13 @@
 	var/is_charging = 0
 	var/irradiate_non_cov = 0 //Set this to anything above 0, and it'll irradiate humans when fired. Spartans and Orions are ok.
 	var/is_heavy = 0 //Set this to anything above 0, and all species that aren't elites/brutes/spartans/orions have to two-hand it
+	var/advanced_covenant = 0
+
+	//"Channeled" weapons, aka longfire beam sustained types (sentinel beam)//
+
+	var/sustain_delay = -1 //Set this to the delay between "firing" whilst channeled.Set the weapon tracer to match this value.
+	var/sustain_time = -1 //How long does this sustain fire for.
+	var/atom/stored_targ
 
 /obj/item/weapon/gun/New()
 	..()
@@ -231,6 +239,10 @@
 		else
 			handle_click_empty(user)
 		return 0
+	var/mob/living/carbon/human/h = user
+	if(istype(h) && h.species.can_operate_advanced_covenant == 0 && advanced_covenant == 1)
+		to_chat(h,"<span class= 'danger'>You don't know how to operate this weapon!</span>")
+		return 0
 	return 1
 
 /obj/item/weapon/gun/emp_act(severity)
@@ -238,7 +250,7 @@
 		O.emp_act(severity)
 
 /obj/item/weapon/gun/afterattack(atom/A, mob/living/user, adjacent, params)
-	if(adjacent) return //A is adjacent, is the user, or is on the user's person
+	if(adjacent) return ..()//A is adjacent, is the user, or is on the user's person
 
 	if(!user.aiming)
 		user.aiming = new(user)
@@ -254,6 +266,8 @@
 		return
 
 	if(user && user.a_intent == I_HELP) //regardless of what happens, refuse to shoot if help intent is on
+		if(get_lunge_dist() > 0) //If we're on help intent and we have a lunge, do the lunge.
+			return ..()
 		to_chat(user, "<span class='warning'>You refrain from firing your [src] as your intent is set to help.</span>")
 		return
 
@@ -267,6 +281,7 @@
 
 		is_charging = 1
 		if (!do_after(user,arm_time,src))
+			is_charging = 0
 			return
 		Fire(A,user,params)
 		is_charging = 0
@@ -285,18 +300,27 @@
 	if(target.z != user.z) return 0
 	return 1
 
+/obj/item/weapon/gun/proc/pershot_check(var/mob/user) //Placeholder for any checks that must be performed per-shot. Used for vehicles.
+	return 1
+
 /obj/item/weapon/gun/proc/Fire(atom/target, mob/living/user, clickparams, pointblank=0, reflex=0)
 	if(!user || !target) return
+	if(target.elevation != last_elevation && (istype(target,/obj/vehicles) || istype(target,/mob/living)))
+		last_elevation = target.elevation
+		visible_message("<span class = 'warning'>[user.name] changes their firing elevation to target [target.name]</span>")
+	var/list/rounds_nosuppress = list()
 	if(istype(user.loc,/obj/vehicles))
 		var/obj/vehicles/V = user.loc
-		var/user_position = V.occupants[user]
-		if(isnull(user_position)) return
-		if(user_position == "driver")
-			to_chat(user,"<span class = 'warning'>You can't fire from the driver's position!</span>")
-			return
-		if(!(user_position in V.exposed_positions))
-			to_chat(user,"<span class = 'warning'>You can't fire [src.name] from this position in [V.name].</span>")
-			return
+		rounds_nosuppress += V.occupants
+		if(!istype(src,/obj/item/weapon/gun/vehicle_turret))
+			var/user_position = V.occupants[user]
+			if(isnull(user_position)) return
+			if(user_position == "driver")
+				to_chat(user,"<span class = 'warning'>You can't fire from the driver's position!</span>")
+				return
+			if(!(user_position in V.exposed_positions))
+				to_chat(user,"<span class = 'warning'>You can't fire [src.name] from this position in [V.name].</span>")
+				return
 		if(target.z != V.z) return
 	else
 		if(!check_z_compatible(target,user)) return
@@ -315,6 +339,11 @@
 	if(!special_check(user))
 		return
 
+	if(stored_targ)
+		stored_targ = target
+		visible_message("<span class = 'notice'>[user] refocuses their aim on [target]</span>")
+		return
+
 	if(world.time < next_fire_time)
 		if (world.time % 3) //to prevent spam
 			to_chat(user, "<span class='warning'>[src] is not ready to fire again!</span>")
@@ -328,46 +357,84 @@
 			return
 
 	var/shoot_time = (burst - 1)* burst_delay
-	user.setClickCooldown(shoot_time) //no clicking on things while shooting
+	//user.setClickCooldown(shoot_time) //no clicking on things while shooting
 	//user.setMoveCooldown(shoot_time) //no moving while shooting either
-	next_fire_time = world.time + shoot_time
+	next_fire_time = world.time + shoot_time + fire_delay
+	if(istype(user,/mob/living/carbon/human))
+		var/mob/living/carbon/human/h = user
+		for(var/obj/item/weapon/gun/g in h.contents)
+			g.next_fire_time = next_fire_time
 
 	//actually attempt to shoot
 	var/turf/targloc = get_turf(target) //cache this in case target gets deleted during shooting, e.g. if it was a securitron that got destroyed.
+	var/atom/use_targ = target
+	if(sustain_time > 0)
+		burst = sustain_time/sustain_delay
+		burst_delay = sustain_delay
+		stored_targ = target
+		use_targ = stored_targ
 	. = 1
 	for(var/i in 1 to burst)
+		if(!pershot_check(user))
+			break
+		if(stored_targ)
+			if(stored_targ == user)
+				stored_targ = null
+				visible_message("<span class = 'notice'>[user] stops firing [src].</span>")
+				break
+			targloc = get_turf(stored_targ)
+			use_targ = stored_targ
+		var/mob/living/carbon/human/h = user
+		if(!istype(loc,/obj/item/weapon/gun/dual_wield_placeholder))
+			if(isnull(user) || user.stat == DEAD || (istype(h) && (h.l_hand != src && h.r_hand != src)))
+				break
+		user.currently_firing = move_delay_malus
 		var/obj/projectile = consume_next_projectile(user)
 		if(!projectile)
 			handle_click_empty(user)
 			. = 0
 			break
+		if(istype(projectile,/obj/item/projectile))
+			var/obj/item/projectile/proj_obj = projectile
+			proj_obj.target_elevation = last_elevation
+			proj_obj.permutated += rounds_nosuppress //Stops people in a vehicle from being suppressed by their own vehicle's shots.
 
-		process_accuracy(projectile, user, target, i, held_twohanded)
+		if(user.loc != targloc) //This should stop people being able to just click on someone for free autotracking.
+			var/mob/living/targ_m = target
+			if(istype(targ_m))
+				if(!targ_m.lying)
+					use_targ = targloc
+			else
+				use_targ = targloc
+
+		process_accuracy(projectile, user, use_targ, i, held_twohanded)
 
 		if(pointblank)
-			process_point_blank(projectile, user, target)
+			process_point_blank(projectile, user, use_targ)
 
 		var/target_zone
-		if(user.zone_sel)
+		if(user && user.zone_sel)
 			target_zone = user.zone_sel.selecting
 		else
 			target_zone = "chest"
 
-		if(process_projectile(projectile, user, target, target_zone, clickparams))
-			handle_post_fire(user, target, pointblank, reflex)
+		if(process_projectile(projectile, user, use_targ, target_zone, clickparams))
+			handle_post_fire(user, use_targ, pointblank, reflex)
 			update_icon()
 
 		if(i < burst)
 			sleep(burst_delay)
 
-		if(!(target && target.loc))
+		if(!(use_targ && use_targ.loc))
 			target = targloc
 			pointblank = 0
 
 	//update timing
+	stored_targ = null
 	user.setClickCooldown(DEFAULT_QUICK_COOLDOWN)
+	spawn(BASE_MOVEDELAY_MOD_APPLYFOR_TIME)
+		user.currently_firing = 0
 	//user.setMoveCooldown(move_delay)//
-	next_fire_time = world.time + fire_delay
 	return
 
 //obtains the next projectile to fire
@@ -503,8 +570,7 @@
 		//If you aim at someone beforehead, it'll hit more often.
 		//Kinda balanced by fact you need like 2 seconds to aim
 		//As opposed to no-delay pew pew
-		//Increased to +3 to add a larger incentive to use it, even if you are stuck in one spot with the fast-paced combat system
-		P.accuracy += 3
+		P.accuracy += 2
 
 //does the actual launching of the projectile
 /obj/item/weapon/gun/proc/process_projectile(obj/projectile, mob/user, atom/target, var/target_zone, var/params=null)
@@ -527,15 +593,17 @@
 			y_offset = rand(-1,1)
 			x_offset = rand(-1,1)
 
-	var/launched = !P.launch_from_gun(target, user, src, target_zone, x_offset, y_offset)
+	var/obj/launched = !P.launch_from_gun(target, user, src, target_zone, x_offset, y_offset)
 
 	if(launched)
 		play_fire_sound(user,P)
+		if(istype(target,/atom/movable) && istype(launched) && get_dist(target,user) <= 1)
+			change_elevation(target.elevation-launched.elevation)
 
 	return launched
 
 /obj/item/weapon/gun/proc/play_fire_sound(var/mob/user, var/obj/item/projectile/P)
-	var/shot_sound = (istype(P) && fire_sound)? fire_sound : P.fire_sound //Tweaked to favour gun firesound over projectile firesound.;
+	var/shot_sound = fire_sound ? fire_sound : istype(P) ? P.fire_sound : null //Tweaked to favour gun firesound over projectile firesound.;
 	if(silenced)
 		playsound(user, shot_sound, 10, 0)
 	else
@@ -589,9 +657,10 @@
 	var/cumulative_slowdownmod = 0
 	for(var/obj/item/weapon_attachment/attachment in get_attachments())
 		var/list/attrib_mods = attachment.get_attribute_mods(src)
-		cumulative_dispmod += attrib_mods[1]
-		cumulative_accmod += attrib_mods[2]
-		cumulative_slowdownmod += attrib_mods[3]
+		if(!isnull(attrib_mods))
+			cumulative_dispmod += attrib_mods[1]
+			cumulative_accmod += attrib_mods[2]
+			cumulative_slowdownmod += attrib_mods[3]
 
 	dispersion += cumulative_dispmod
 	accuracy += cumulative_accmod
@@ -655,6 +724,11 @@
 	if(firemodes.len > 1)
 		var/datum/firemode/current_mode = firemodes[sel_mode]
 		to_chat(user, "The fire selector is set to [current_mode.name].")
+	var/list/attachments_names = get_attachments(1)
+	if(attachments_names.len > 0)
+		to_chat(user,"It has the following attachments:")
+		for(var/name in attachments_names)
+			to_chat(user,"\n[name]")
 
 /obj/item/weapon/gun/proc/switch_firemodes()
 	if(firemodes.len <= 1)
@@ -669,6 +743,10 @@
 	return new_mode
 
 /obj/item/weapon/gun/attack_self(mob/user)
+	if(stored_targ)
+		to_chat(user,"<span class = 'notice'>You stop your sustained burst from [src]</span>")
+		stored_targ = null
+		return
 	var/datum/firemode/new_mode = switch_firemodes(user)
 	if(new_mode)
 		to_chat(user, "<span class='notice'>\The [src] is now set to [new_mode.name].</span>")

@@ -6,6 +6,8 @@
 /area
 	var/global/global_uid = 0
 	var/uid
+	var/list/mobs_in_area = list()
+	var/obj/structure/ai_routing_node/ai_routing_node = null
 
 /area/New()
 	icon_state = ""
@@ -245,7 +247,15 @@
 var/list/mob/living/forced_ambiance_list = new
 
 /area/Entered(A)
-	if(!istype(A,/mob/living))	return
+	if(!istype(A,/mob))
+		return
+	var/mob/M = A
+	if(M.lastarea)
+		M.lastarea.mobs_in_area -= A
+	mobs_in_area += A
+	if(!istype(A,/mob/living))
+		M.lastarea = src
+		return
 
 	var/mob/living/L = A
 	if(!L.ckey)	return

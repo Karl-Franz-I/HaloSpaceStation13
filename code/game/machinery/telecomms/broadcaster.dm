@@ -229,6 +229,7 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 
   /* ###### Prepare the radio connection ###### */
 
+	/*
 	var/display_freq = freq
 
 	var/list/obj/item/device/radio/radios = list()
@@ -304,9 +305,23 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 		for(var/obj/machinery/telecomms_jammers/tj in telecomms_list)
 			if(tj.jamming_active == 0)
 				continue
-			if(get_dist(tj,R) <= tj.jam_range)
+			if((!(connection.frequency in tj.ignore_freqs) || prob(tj.jam_ignore_malfunction_chance)) && get_dist(tj,R) <= tj.jam_range)
 				if(prob(tj.jam_chance))
-					compression += tj.jam_power
+					if(tj.jam_power < 0)
+						switch (tj.jam_power)
+							if(-1)
+								heard_gibberish += R
+								compression += 100
+							if(-2)
+								heard_garbled += R
+							else
+								log_admin("Telecomms jammer has a invalid negative value.")
+					else
+						if(prob(tj.jam_power))
+							heard_garbled += R
+						else
+							heard_gibberish += R
+							compression += 100
 					signal_jammed = 1
 				break
 
@@ -340,9 +355,12 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 		var/freq_text = get_frequency_name(display_freq)
 
 		var/part_b_extra = ""
+		var/rank_text = ""
 		if(data == 3) // intercepted radio message
 			part_b_extra = " <i>(Intercepted)</i>"
-		var/part_a = "<span class='[halo_frequency_span_class(display_freq)]'>\icon[radio]<b>\[[freq_text]\][part_b_extra]</b> <span class='name'>" // goes in the actual output
+		if((job != "Unknown" || job != "No id") && freq != halo_frequencies.civ_freq && freq != halo_frequencies.all_frequencies["EBAND"])
+			rank_text = "\[[job]\]"
+		var/part_a = "<span class='[halo_frequency_span_class(display_freq)]'>\icon[radio]<b>\[[freq_text]\][rank_text][part_b_extra]</b> <span class='name'>" // goes in the actual output
 
 		// --- Some more pre-message formatting ---
 		var/part_b = "</span> <span class='message'>" // Tweaked for security headsets -- TLE
@@ -429,11 +447,13 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 				R.hear_radio(message, verbage, speaking, part_a, part_b, part_c, M, compression)
 
 	return 1
+	*/
 
 /proc/Broadcast_SimpleMessage(var/source, var/frequency, var/text, var/data, var/mob/M, var/compression, var/level)
 
   /* ###### Prepare the radio connection ###### */
 
+	/*
 	if(!M)
 		var/mob/living/carbon/human/H = new
 		M = H
@@ -522,7 +542,7 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 	if (length(heard_normal) || length(heard_garbled) || length(heard_gibberish))
 
 	  /* --- Some miscellaneous variables to format the string output --- */
-		var/part_a = "<span class='[halo_frequency_span_class(display_freq)]'><span class='name'>" // goes in the actual output
+		var/part_a = "<span class='radio'><span class='name'>" // goes in the actual output
 		var/freq_text = get_frequency_name(display_freq)
 
 		// --- Some more pre-message formatting ---
@@ -599,6 +619,8 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 
 			for (var/mob/R in heard_gibberish)
 				R.show_message(rendered, 2)
+
+	*/
 
 //Use this to test if an obj can communicate with a Telecommunications Network
 

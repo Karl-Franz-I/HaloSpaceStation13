@@ -76,7 +76,7 @@
 	else
 		return
 
-	if (message)
+	if (message && (src.client || !config.ignore_npc_chatter))
 		log_emote("[name]/[key] : [message]")
 	//do not show NPC animal emotes to ghosts, it turns into hellscape
 	var/check_ghosts = client ? /datum/client_preference/ghost_sight : null
@@ -87,8 +87,7 @@
 
 // Specific mob type exceptions below.
 /mob/living/silicon/ai/emote(var/act, var/type, var/message)
-	var/obj/machinery/hologram/holopad/T = src.holo
-	if(T && T.masters[src]) //Is the AI using a holopad?
+	if(our_holo)
 		src.holopad_emote(message)
 	else //Emote normally, then.
 		..()

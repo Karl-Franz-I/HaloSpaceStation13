@@ -2,7 +2,7 @@
 	name = "wall"
 	desc = "A huge chunk of metal used to seperate rooms."
 	icon = 'icons/turf/wall_masks.dmi'
-	icon_state = "generic"
+	icon_state = "solid"
 	opacity = 1
 	density = 1
 	blocks_air = 1
@@ -20,7 +20,14 @@
 	var/construction_stage
 	var/hitsound = 'sound/weapons/Genhit.ogg'
 	var/list/wall_connections = list("0", "0", "0", "0")
+	var/list/other_connections = list("0", "0", "0", "0")
 	var/floor_type = /turf/simulated/floor/plating //turf it leaves after destruction
+	var/paint_color
+	var/stripe_color
+	var/global/list/wall_stripe_cache = list()
+	var/list/blend_turfs = list(/turf/simulated/wall/cult, /turf/simulated/wall/wood)
+	var/list/blend_objects = list(/obj/machinery/door, /obj/machinery/door/airlock/halo, /obj/structure/window/reinforced/polarized/full, /obj/structure/window/shuttle, /obj/structure/window/phoronreinforced/full) // Objects which to blend with
+	var/list/noblend_objects = list(/obj/machinery/door/window) //Objects to avoid blending with (such as children of listed blend objects.
 
 /turf/simulated/wall/New(var/newloc, var/materialtype, var/rmaterialtype)
 	..(newloc)
@@ -32,7 +39,6 @@
 		reinf_material = get_material_by_name(rmaterialtype)
 	update_material()
 	hitsound = material.hitsound
-	processing_turfs |= src
 
 /turf/simulated/wall/Destroy()
 	processing_turfs -= src
@@ -48,8 +54,10 @@
 	var/obj/O = A
 	return (istype(O) && O.hides_under_flooring()) || ..()
 
-/turf/simulated/wall/process()
-	// Calling parent will kill processing
+/turf/simulated/wall/process(wait = 1, times_fired = 0)
+	var/how_often = max(round(2 SECONDS/wait), 1)
+	if(times_fired % how_often)
+		return //We only work about every 2 seconds
 	if(!radiate())
 		return PROCESS_KILL
 
@@ -70,22 +78,14 @@
 		else if(Proj.damage_type == BRUTE)
 			proj_damage /= reinf_material.brute_armor
 
-	//Damage cap removed. If we want to insta-kill a wall we'll do it.
-	var/damage = proj_damage/10//Apply the /10 before throwing it through the cap.
+	//cap the amount of damage, so that things like emitters can't destroy walls in one hit.
+	var/damage = min(proj_damage, 100)
 
 	take_damage(damage)
 	return
 
 /turf/simulated/wall/hitby(AM as mob|obj, var/speed=THROWFORCE_SPEED_DIVISOR)
 	..()
-	if(ismob(AM))
-		return
-
-	var/tforce = AM:throwforce * (speed/THROWFORCE_SPEED_DIVISOR)
-	if (tforce < 15)
-		return
-
-	take_damage(tforce)
 
 /turf/simulated/wall/proc/clear_plants()
 	for(var/obj/effect/overlay/wallrot/WR in src)
@@ -96,7 +96,6 @@
 			plant.update_icon()
 			plant.pixel_x = 0
 			plant.pixel_y = 0
-		plant.update_neighbors()
 
 /turf/simulated/wall/ChangeTurf(var/newtype)
 	clear_plants()
@@ -104,19 +103,20 @@
 
 //Appearance
 /turf/simulated/wall/examine(mob/user)
-	. = ..(user)
+	. = ..()
 
 	if(!damage)
 		to_chat(user, "<span class='notice'>It looks fully intact.</span>")
 	else
-		var/dam = damage / material.integrity
+		var/dam = damage / max_health()
 		if(dam <= 0.3)
 			to_chat(user, "<span class='warning'>It looks slightly damaged.</span>")
 		else if(dam <= 0.6)
 			to_chat(user, "<span class='warning'>It looks moderately damaged.</span>")
 		else
 			to_chat(user, "<span class='danger'>It looks heavily damaged.</span>")
-
+	if(paint_color)
+		to_chat(user, "<span class='notice'>It has a coat of paint applied.</span>")
 	if(locate(/obj/effect/overlay/wallrot) in src)
 		to_chat(user, "<span class='warning'>There is fungus growing on [src].</span>")
 
@@ -143,13 +143,16 @@
 		update_damage()
 	return
 
-/turf/simulated/wall/proc/update_damage()
+/turf/simulated/wall/proc/max_health()
 	var/cap = material.integrity
 	if(reinf_material)
 		cap += reinf_material.integrity
 
 	if(locate(/obj/effect/overlay/wallrot) in src)
 		cap = cap / 10
+	return cap
+/turf/simulated/wall/proc/update_damage()
+	var/cap = max_health()
 
 	if(damage >= cap)
 		dismantle_wall()
@@ -233,14 +236,16 @@
 	O.plane = LIGHTING_PLANE
 	O.layer = FIRE_LAYER
 
-	src.ChangeTurf(/turf/simulated/floor/plating)
+	src.ChangeTurf(floor_type)
 
 	var/turf/simulated/floor/F = src
 	F.burn_tile()
 	F.icon_state = "wall_thermite"
-	to_chat(user, "<span class='warning'>The thermite starts melting through the wall.</span>")
+	var/material/wallmat = get_material_by_name(DEFAULT_WALL_MATERIAL)
+	var/burn_time = 100 * (max_health()/wallmat.integrity)
+	to_chat(user, "<span class='warning'>The thermite starts melting through the wall. You estimate it'll take [round(burn_time/60)] minutes.</span>")
 
-	spawn(100)
+	spawn(burn_time)
 		if(O)
 			qdel(O)
 //	F.sd_LumReset()		//TODO: ~Carn
@@ -263,3 +268,12 @@
 				W.burn((temperature/4))
 			for(var/obj/machinery/door/airlock/phoron/D in range(3,src))
 				D.ignite(temperature/4)
+
+/turf/simulated/wall/get_color()
+	return paint_color
+
+/turf/simulated/wall/proc/CheckPenetration(var/base_chance, var/damage)
+	return round(damage/material.integrity*180)
+
+/turf/simulated/wall/is_wall()
+	return TRUE

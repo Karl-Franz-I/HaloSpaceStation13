@@ -14,10 +14,6 @@
 		slot_r_hand_str = null,
 		)
 
-/obj/item/clothing/glasses/hud/tactical/odst_hud
-	darkness_view = 4
-	see_invisible = SEE_INVISIBLE_NOLIGHTING
-
 /obj/item/clothing/head/helmet/odst
 	name = "ODST Rifleman Helmet"
 	desc = "Standard issue short-EVA capable helmet issued to ODST forces"
@@ -28,14 +24,14 @@
 	var/icon_state_novisr = "Helmet ODST Transparent"
 	var/item_state_novisr = "Odst Helmet Transparent"
 	item_flags = STOPPRESSUREDAMAGE|THICKMATERIAL|AIRTIGHT
-	body_parts_covered = HEAD|FACE
+	body_parts_covered = HEAD|FACE|EYES
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|BLOCKHAIR
 	flash_protection = FLASH_PROTECTION_MODERATE
 	cold_protection = HEAD | FACE
 	heat_protection = HEAD | FACE
 	min_cold_protection_temperature = SPACE_HELMET_MIN_COLD_PROTECTION_TEMPERATURE
 	max_heat_protection_temperature = FIRE_HELMET_MAX_HEAT_PROTECTION_TEMPERATURE
-	armor = list(melee = 60, bullet = 35, laser = 25,energy = 25, bomb = 20, bio = 100, rad = 25)
+	armor = list(melee = 55, bullet = 35, laser = 25,energy = 25, bomb = 20, bio = 25, rad = 25)
 	item_icons = list(
 		slot_l_hand_str = null,
 		slot_r_hand_str = null,
@@ -44,6 +40,7 @@
 	action_button_name = "Toggle Helmet Light"
 	light_overlay = "helmet_light"
 	brightness_on = 4
+	unacidable = 1
 	on = 0
 	var/visr_on = 1
 	armor_thickness = 20
@@ -57,11 +54,12 @@
 	icon_state = "Odst Armour"
 	icon_override = ODST_OVERRIDE
 	blood_overlay_type = "armor"
-	armor = list(melee = 55, bullet = 50, laser = 55, energy = 45, bomb = 40, bio = 100, rad = 25)
-	//specials = list(/datum/armourspecials/internal_air_tank/human) This line is disabled untill a dev can fix the internals code for it.
+	armor = list(melee = 55, bullet = 50, laser = 55, energy = 45, bomb = 40, bio = 25, rad = 25)
+	allowed = list(/obj/item/weapon/gun/energy,/obj/item/device/radio,/obj/item/weapon/reagent_containers/spray/pepper,/obj/item/weapon/gun/projectile,/obj/item/ammo_magazine,/obj/item/ammo_casing,/obj/item/weapon/melee/baton,/obj/item/weapon/handcuffs,/obj/item/weapon/gun/magnetic,/obj/item/weapon/tank)
 	item_flags = STOPPRESSUREDAMAGE|THICKMATERIAL
 	body_parts_covered = UPPER_TORSO | LOWER_TORSO | ARMS | LEGS
 	flags_inv = HIDEGLOVES|HIDESHOES|HIDEJUMPSUIT|HIDETAIL
+	unacidable = 1
 	cold_protection = UPPER_TORSO | LOWER_TORSO | LEGS | FEET | ARMS | HANDS
 	heat_protection = UPPER_TORSO | LOWER_TORSO | LEGS | FEET | ARMS | HANDS
 	min_cold_protection_temperature = SPACE_SUIT_MIN_COLD_PROTECTION_TEMPERATURE
@@ -70,7 +68,6 @@
 		slot_l_hand_str = null,
 		slot_r_hand_str = null,
 		)
-	armor_thickness = 20
 
 
 /obj/item/clothing/shoes/magboots/odst
@@ -83,6 +80,7 @@
 	item_state = "magboots"
 	can_hold_knife = 1
 	force = 5
+	stepsound = 'code/modules/halo/sounds/walk_sounds/marine_boots.ogg'
 
 //Defines for armour subtypes//
 
@@ -164,6 +162,8 @@
 	icon_state = "Helmet Medic"
 	item_state_novisr = "Odst Helmet Medic Transparent"
 	icon_state_novisr = "Helmet Medic Transparent"
+
+	integrated_hud = /obj/item/clothing/glasses/hud/tactical/odst_hud/medic
 
 ///obj/item/clothing/head/helmet/odst/medic/health/process_hud(var/mob/M)
 //	process_med_hud(M, 1)

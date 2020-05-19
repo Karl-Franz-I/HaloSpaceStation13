@@ -189,6 +189,8 @@
 			return global.air_master;
 		if("air_processing_killed")
 			return global.air_processing_killed;
+		if("airlock_overlays")
+			return global.airlock_overlays;
 		if("alarm_manager")
 			return global.alarm_manager;
 		if("alien_whitelist")
@@ -209,6 +211,8 @@
 			return global.all_languages;
 		if("all_money_accounts")
 			return global.all_money_accounts;
+		if("all_networks")
+			return global.all_networks;
 		if("all_objectives")
 			return global.all_objectives;
 		if("all_robolimbs")
@@ -257,6 +261,8 @@
 			return global.assistant_occupations;
 		if("atmosphere_alarm")
 			return global.atmosphere_alarm;
+		if("atom_despawner")
+			return global.atom_despawner;
 		if("attack_log_repository")
 			return global.attack_log_repository;
 		if("autolathe_categories")
@@ -297,10 +303,6 @@
 			return global.camera_range_display_status;
 		if("camera_repository")
 			return global.camera_repository;
-		if("cameranet")
-			return global.cameranet;
-		if("cameranet_")
-			return global.cameranet_;
 		if("can_call_ert")
 			return global.can_call_ert;
 		if("captain_announcement")
@@ -313,8 +315,6 @@
 			return global.cargo_supply_packs;
 		if("changelog_hash")
 			return global.changelog_hash;
-		if("channel_to_radio_key")
-			return global.channel_to_radio_key;
 		if("chargen_robolimbs")
 			return global.chargen_robolimbs;
 		if("checked_for_inactives")
@@ -407,8 +407,6 @@
 			return global.delta_index;
 		if("department_accounts")
 			return global.department_accounts;
-		if("department_radio_keys")
-			return global.department_radio_keys;
 		if("description_icons")
 			return global.description_icons;
 		if("diary")
@@ -551,8 +549,6 @@
 			return global.hair_styles_list;
 		if("hair_styles_male_list")
 			return global.hair_styles_male_list;
-		if("halo_frequencies")
-			return global.halo_frequencies;
 		if("hazard_overlays")
 			return global.hazard_overlays;
 		if("hidden_skill_types")
@@ -581,8 +577,6 @@
 			return global.init;
 		if("initialization_stage")
 			return global.initialization_stage;
-		if("insurrection_objectives")
-			return global.insurrection_objectives;
 		if("integrated_circuit_blacklist")
 			return global.integrated_circuit_blacklist;
 		if("intents")
@@ -677,8 +671,6 @@
 			return global.magazine_icondata_states;
 		if("maint_all_access")
 			return global.maint_all_access;
-		if("malf")
-			return global.malf;
 		if("mannequins_")
 			return global.mannequins_;
 		if("map_count")
@@ -919,8 +911,6 @@
 			return global.req_console_supplies;
 		if("responsive_carriers")
 			return global.responsive_carriers;
-		if("restricted_camera_networks")
-			return global.restricted_camera_networks;
 		if("revdata")
 			return global.revdata;
 		if("revs")
@@ -1157,8 +1147,6 @@
 			return global.total_lighting_sources;
 		if("total_unit_tests")
 			return global.total_unit_tests;
-		if("trade_controller")
-			return global.trade_controller;
 		if("traitors")
 			return global.traitors;
 		if("transfer_controller")
@@ -1229,7 +1217,7 @@
 			return global.xenomorphs;
 		if("zone_blocked")
 			return global.zone_blocked;
-		
+
 /proc/writeglobal(which, newval)
 	switch(which)
 		if("ALL_ANTIGENS")
@@ -1420,6 +1408,8 @@
 			global.air_master=newval;
 		if("air_processing_killed")
 			global.air_processing_killed=newval;
+		if("airlock_overlays")
+			global.airlock_overlays=newval;
 		if("alarm_manager")
 			global.alarm_manager=newval;
 		if("alien_whitelist")
@@ -1440,6 +1430,8 @@
 			global.all_languages=newval;
 		if("all_money_accounts")
 			global.all_money_accounts=newval;
+		if("all_networks")
+			global.all_networks=newval;
 		if("all_objectives")
 			global.all_objectives=newval;
 		if("all_robolimbs")
@@ -1488,6 +1480,8 @@
 			global.assistant_occupations=newval;
 		if("atmosphere_alarm")
 			global.atmosphere_alarm=newval;
+		if("atom_despawner")
+			global.atom_despawner=newval;
 		if("attack_log_repository")
 			global.attack_log_repository=newval;
 		if("autolathe_categories")
@@ -1528,10 +1522,6 @@
 			global.camera_range_display_status=newval;
 		if("camera_repository")
 			global.camera_repository=newval;
-		if("cameranet")
-			global.cameranet=newval;
-		if("cameranet_")
-			global.cameranet_=newval;
 		if("can_call_ert")
 			global.can_call_ert=newval;
 		if("captain_announcement")
@@ -1544,8 +1534,6 @@
 			global.cargo_supply_packs=newval;
 		if("changelog_hash")
 			global.changelog_hash=newval;
-		if("channel_to_radio_key")
-			global.channel_to_radio_key=newval;
 		if("chargen_robolimbs")
 			global.chargen_robolimbs=newval;
 		if("checked_for_inactives")
@@ -1638,8 +1626,6 @@
 			global.delta_index=newval;
 		if("department_accounts")
 			global.department_accounts=newval;
-		if("department_radio_keys")
-			global.department_radio_keys=newval;
 		if("description_icons")
 			global.description_icons=newval;
 		if("diary")
@@ -1782,8 +1768,6 @@
 			global.hair_styles_list=newval;
 		if("hair_styles_male_list")
 			global.hair_styles_male_list=newval;
-		if("halo_frequencies")
-			global.halo_frequencies=newval;
 		if("hazard_overlays")
 			global.hazard_overlays=newval;
 		if("hidden_skill_types")
@@ -1812,8 +1796,6 @@
 			global.init=newval;
 		if("initialization_stage")
 			global.initialization_stage=newval;
-		if("insurrection_objectives")
-			global.insurrection_objectives=newval;
 		if("integrated_circuit_blacklist")
 			global.integrated_circuit_blacklist=newval;
 		if("intents")
@@ -1908,8 +1890,6 @@
 			global.magazine_icondata_states=newval;
 		if("maint_all_access")
 			global.maint_all_access=newval;
-		if("malf")
-			global.malf=newval;
 		if("mannequins_")
 			global.mannequins_=newval;
 		if("map_count")
@@ -2150,8 +2130,6 @@
 			global.req_console_supplies=newval;
 		if("responsive_carriers")
 			global.responsive_carriers=newval;
-		if("restricted_camera_networks")
-			global.restricted_camera_networks=newval;
 		if("revdata")
 			global.revdata=newval;
 		if("revs")
@@ -2388,8 +2366,6 @@
 			global.total_lighting_sources=newval;
 		if("total_unit_tests")
 			global.total_unit_tests=newval;
-		if("trade_controller")
-			global.trade_controller=newval;
 		if("traitors")
 			global.traitors=newval;
 		if("transfer_controller")
@@ -2460,7 +2436,7 @@
 			global.xenomorphs=newval;
 		if("zone_blocked")
 			global.zone_blocked=newval;
-		
+
 /var/list/_all_globals=list(
 	"ALL_ANTIGENS",
 	"ANTAG_FREQS",
@@ -2556,6 +2532,7 @@
 	"air_blocked",
 	"air_master",
 	"air_processing_killed",
+	"airlock_overlays",
 	"alarm_manager",
 	"alien_whitelist",
 	"allCasters",
@@ -2566,6 +2543,7 @@
 	"all_grabstates",
 	"all_languages",
 	"all_money_accounts",
+	"all_networks",
 	"all_objectives",
 	"all_robolimbs",
 	"all_species",
@@ -2590,6 +2568,7 @@
 	"assigned_blocks",
 	"assistant_occupations",
 	"atmosphere_alarm",
+	"atom_despawner",
 	"attack_log_repository",
 	"autolathe_categories",
 	"autolathe_recipes",
@@ -2610,8 +2589,6 @@
 	"camera_alarm",
 	"camera_range_display_status",
 	"camera_repository",
-	"cameranet",
-	"cameranet_",
 	"can_call_ert",
 	"captain_announcement",
 	"cargo_positions",
@@ -2752,7 +2729,6 @@
 	"inactive_keys",
 	"init",
 	"initialization_stage",
-	"insurrection_objectives",
 	"integrated_circuit_blacklist",
 	"intents",
 	"intercom_range_display_status",
@@ -2800,7 +2776,6 @@
 	"magazine_icondata_keys",
 	"magazine_icondata_states",
 	"maint_all_access",
-	"malf",
 	"mannequins_",
 	"map_count",
 	"map_datas",
@@ -2921,7 +2896,6 @@
 	"req_console_information",
 	"req_console_supplies",
 	"responsive_carriers",
-	"restricted_camera_networks",
 	"revdata",
 	"revs",
 	"robot_custom_icons",
@@ -3040,7 +3014,6 @@
 	"total_lighting_overlays",
 	"total_lighting_sources",
 	"total_unit_tests",
-	"trade_controller",
 	"traitors",
 	"transfer_controller",
 	"turbolift_controller",

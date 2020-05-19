@@ -62,7 +62,10 @@ var/global/datum/controller/gameticker/ticker
 				pregame_timeleft--
 			if(pregame_timeleft <= config.vote_autogamemode_timeleft && !gamemode_voted)
 				gamemode_voted = 1
-				if(!vote.delay_round_start())
+				if(GLOB.using_map.allowed_gamemodes.len == 1)
+					master_mode = GLOB.using_map.allowed_gamemodes[1]
+
+				else if(!vote.delay_round_start())
 					vote.autogamemode()	//Quit calling this over and over and over and over.
 					while(vote.delay_round_start())
 						for(var/i=0, i<10, i++)
@@ -138,7 +141,6 @@ var/global/datum/controller/gameticker/ticker
 	else
 		src.mode.announce()
 
-	setup_economy()
 	current_state = GAME_STATE_PLAYING
 	Master.SetRunLevel(RUNLEVEL_GAME)
 	create_characters() //Create player characters and transfer them
@@ -147,8 +149,6 @@ var/global/datum/controller/gameticker/ticker
 	GLOB.data_core.manifest()
 
 	callHook("roundstart")
-
-	shuttle_controller.initialize_shuttles()
 
 	spawn(0)//Forking here so we dont have to wait for this to finish
 		mode.post_setup()
@@ -285,7 +285,30 @@ var/global/datum/controller/gameticker/ticker
 				else if(!player.mind.assigned_role)
 					continue
 				else
-					if(player.create_character(job_master.get_roundstart_spawnpoint(player.mind.assigned_role)))
+					//check if they are an antag that overrides ordinary job spawning
+					if(player.mind.special_role)
+						var/antag_id = antag_names_to_ids_[player.mind.special_role]
+						var/datum/antagonist/antag = all_antag_types_[antag_id]
+						if(antag.flags & ANTAG_OVERRIDE_MOB)
+							continue
+
+					var/datum/spawnpoint/spawnpoint = job_master.get_spawnpoint_for(player.client, job_master.occupations_by_title[player.mind.assigned_role])
+
+					//sanity checking
+					if(!spawnpoint)
+						var/datum/job/J = job_master.occupations_by_title[player.mind.assigned_role]
+						var/error_msg = "SPAWN ERROR: was not able to find valid spawnpoint for \
+							player: \'[player.ckey]\' \
+							assigned_role: \'[player.mind.assigned_role]\' \
+							job: \'[J ? J.type : "NULL"]\'."
+						to_chat(player,"<span class = 'warning'>[error_msg]</span>")
+						log_debug(error_msg)
+						message_admins(error_msg)
+						continue
+
+					var/turf/spawn_turf = spawnpoint.get_spawn_turf(player.mind.assigned_role)
+
+					if(player.create_character(spawn_turf))
 						qdel(player)
 
 

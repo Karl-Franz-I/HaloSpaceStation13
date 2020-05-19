@@ -1,6 +1,3 @@
-#define ALL_VEHICLE_POSITIONS list("driver","passenger","gunner")
-#define VEHICLE_LOAD_DELAY 2.5 SECONDS //This is the delay to load people onto the vehicle.
-#define VEHICLE_ITEM_LOAD 3.0 SECONDS
 
 /obj/vehicles
 	name = "Vehicle"
@@ -13,6 +10,18 @@
 	var/guns_disabled = 0
 	var/movement_destroyed = 0
 	var/block_enter_exit //Set this to block entering/exiting.
+	var/can_traverse_zs = 0
+
+	var/next_move_input_at = 0//When can we send our next movement input?
+	var/moving_x = 0
+	var/moving_y = 0
+	var/last_moved_axis = 0 //1 = X axis, 2 = Y axis.
+	var/list/speed = list(0,0) //The delay on movement in these directions.
+	var/drag = 1 //How much do we slow down per tick if no input is applied in a direction?
+	var/min_speed = 5 //What's the highest delay we can have?
+	var/max_speed = 1//What's the lowest number we can go to in terms of delay?
+	var/acceleration = 1 //By how much does our speed change per input?
+	var/braking_mode = 0 //1 = brakes active, -1 = purposefully reducing drag to slide.
 
 	//Advanced Damage Handling
 	var/datum/component_profile/comp_prof = /datum/component_profile
@@ -23,17 +32,62 @@
 
 	//Passenger Management
 	var/list/occupants = list(1,1) //Contains all occupants of the vehicle including the driver. First 2 values defines max passengers /gunners. Format: [MobRef] = [PositionName]
-
+	var/list/passengers = list()
 	var/list/exposed_positions = list("driver" = 0.0,"gunner" = 0.0,"passenger" = 0.0) //Assoc. Value is the chance of hitting this position
 
+	//Cargo
+	var/used_cargo_space = 0
+	var/cargo_capacity = 0
+	var/capacity_flag = ITEM_SIZE_SMALL
+	var/list/cargo_contents = list()
+	var/list/ammo_containers = list() //Ammunition containers in the form of ammo magazines.
+
 	//Vehicle ferrying//
-	var/vehicle_size = 0//The size of the vehicle, used by vehicle cargo ferrying to determine allowed amount and allowed size.
+	var/vehicle_size = ITEM_SIZE_VEHICLE//The size of the vehicle, used by vehicle cargo ferrying to determine allowed amount and allowed size.
+	var/vehicle_carry_size = 0		//the max size of a carried vehicle
+	var/obj/vehicles/carried_vehicle
 
 	var/vehicle_view_modifier = 1 //The view-size modifier to apply to the occupants of the vehicle.
 	var/move_sound = null
+	var/collision_sound = 'sound/effects/clang.ogg'
+
+	var/datum/mobile_spawn/spawn_datum //Setting this makes this a mobile spawn point.
 
 	light_power = 4
 	light_range = 6
+
+/obj/vehicles/proc/mobile_spawn_check(var/mob/user)
+	if(spawn_datum.is_spawn_active == 0 && (guns_disabled || movement_destroyed))
+		to_chat(user,"<span class = 'notice'>[src] is too damaged to lock down.</span>")
+		return 0
+	if(block_enter_exit == 1)
+		to_chat(user,"<span class = 'notice'>Cannot deploy in this current state.</span>")
+		return 0
+	return 1
+
+/obj/vehicles/proc/toggle_mobile_spawn_deploy()
+	set name = "Toggle Mobile Spawn Status"
+	set category = "Vehicle"
+	set src in view(1)
+	var/mob/living/user = usr
+	if(!istype(user))
+		return
+	if(!mobile_spawn_check(user))
+		return
+	visible_message("<span class = 'notice'>[user] starts preparing [src] to act as a mobile respawn point</span>")
+	if(!do_after(user,10 SECONDS))
+		return
+	visible_message("<span class = 'notice'>[user] prepares [src] to act as a mobile respawn point</span>")
+	set_mobile_spawn_deploy(!spawn_datum.is_spawn_active)
+
+/obj/vehicles/proc/set_mobile_spawn_deploy(var/set_to)
+	spawn_datum.is_spawn_active = set_to
+	visible_message("<span class = 'notice'>[src] [spawn_datum.is_spawn_active ? "locks down" : "unlocks and readies for operation"]</span>")
+	icon_state = "[initial(icon_state)]_deployed"
+	if(spawn_datum.is_spawn_active)
+		active = 0
+	else
+		active = 1
 
 /obj/vehicles/verb/toggle_headlights()
 	set name = "Toggle Headlights"
@@ -59,6 +113,38 @@
 	if(light_range != 0)
 		verbs += /obj/vehicles/verb/toggle_headlights
 		set_light(0) //Switch off at spawn.
+	cargo_capacity = base_storage_capacity(capacity_flag)
+
+/obj/vehicles/Initialize()
+	. = ..()
+	if(spawn_datum)
+		spawn_datum = new spawn_datum
+		verbs += /obj/vehicles/proc/toggle_mobile_spawn_deploy
+
+/obj/vehicles/attack_generic(var/mob/living/simple_animal/attacker,var/damage,var/text)
+	visible_message("<span class = 'danger'>[attacker] [text] [src]</span>")
+	var/pos_to_dam = should_damage_occ()
+	if(!isnull(pos_to_dam))
+		var/list/occ_list = get_occupants_in_position(pos_to_dam)
+		if(isnull(occ_list) || !occ_list.len)
+			return 1
+		var/mob/mob_to_hit = pick(occ_list)
+		if(isnull(mob_to_hit))
+			return 1
+		attacker.UnarmedAttack(mob_to_hit)
+	comp_prof.take_component_damage(damage,"brute")
+
+/obj/vehicles/proc/display_ammo_status(var/mob/user)
+	for(var/m in ammo_containers)
+		var/obj/item/ammo_magazine/mag = m
+		var/msg = "is full!"
+		if(mag.stored_ammo.len >= mag.initial_ammo * 0.75)
+			msg = "is about 3 quarters full."
+		else if(mag.stored_ammo.len > mag.initial_ammo * 0.5)
+			msg = "is about half full."
+		else if(mag.stored_ammo.len > mag.initial_ammo * 0.25)
+			msg = "is about a quarter full."
+		to_chat(user,"<span class = 'notice'>[src]'s [mag] [msg]</span>")
 
 /obj/vehicles/examine(var/mob/user)
 	. = ..()
@@ -68,39 +154,24 @@
 		to_chat(user,"[src]'s guns are damaged beyond use.")
 	if(movement_destroyed)
 		to_chat(user,"[src]'s movement is damaged beyond use.")
+	if(cargo_capacity)
+		if(!src.Adjacent(user))
+			if(used_cargo_space > 0)
+				to_chat(user,"<span>It looks like there is something in the cargo hold.</span>")
+		else
+			to_chat(user,"<span>It's cargo hold contains [used_cargo_space] of [cargo_capacity] units of cargo ([round(100*used_cargo_space/cargo_capacity)]% full).</span>")
+	if(carried_vehicle)
+		to_chat(user,"<span>It has a [carried_vehicle] mounted on it.</span>")
+
 	show_occupants_contained(user)
 
-/obj/vehicles/proc/update_user_view(var/mob/user,var/reset = 0)
-	if(user.client)
-		if(reset)
-			user.client.view = world.view
-			user.client.pixel_x = 0
-			user.client.pixel_y = 0
-		else
-			user.client.view *= vehicle_view_modifier
-
-/obj/vehicles/proc/show_occupants_contained(var/mob/user)
-	to_chat(user,"<span class = 'notice'>Its visible occupants are:</span>")
-	for(var/mob/M in occupants)
-		if(occupants[M] in exposed_positions)
-			M.examine(user)
-
-/obj/vehicles/proc/is_atom_adjacent(var/atom/A,var/turf/center_turf)
-	if(A in contents || A in occupants)
-		return 1
-	if(center_turf)
-		return center_turf.Adjacent(A)
-	else
-		for(var/turf/T in locs)
-			if(T.Adjacent(A))
-				return 1
-	return 0
+	display_ammo_status(user)
 
 /obj/vehicles/proc/pick_valid_exit_loc()
 	var/list/valid_exit_locs = list()
 	for(var/turf/t in locs)
 		for(var/turf/t_2 in range(1,t))
-			if(!(t_2 in locs))
+			if(!(t_2 in locs) && t_2.density == 0)
 				valid_exit_locs |= t
 				break
 	if(valid_exit_locs.len == 0)
@@ -114,11 +185,10 @@
 /obj/vehicles/proc/on_death()
 	explosion(loc,-1,-1,2,5)
 	movement_destroyed = 1
+	guns_disabled = 1
 	icon_state = "[initial(icon_state)]_destroyed"
-
-/obj/vehicles/proc/kick_occupants()
-	for(var/mob/m in occupants)
-		exit_vehicle(m,1)
+	if(spawn_datum)
+		spawn_datum.is_spawn_active = 0
 
 /obj/vehicles/proc/inactive_pilot_effects() //Overriden on a vehicle-by-vehicle basis.
 
@@ -130,6 +200,8 @@
 			var/list/drivers = get_occupants_in_position("driver")
 			if(!drivers.len || isnull(drivers) || movement_destroyed)
 				inactive_pilot_effects()
+	if(spawn_datum)
+		spawn_datum.process_resource_regen()
 
 /obj/vehicles/proc/update_object_sprites() //This is modified on a vehicle-by-vehicle basis to render mobsprites etc, a basic render of playerheads in the top right is used if no overidden.
 	underlays.Cut()
@@ -160,7 +232,93 @@
 		overlays += head_bg
 		overlays += mob_head
 
-/obj/vehicles/Move()
+/obj/vehicles/verb/verb_toggle_brakes()
+	set name = "Toggle Brakes"
+	set category = "Vehicle"
+	set src in view(1)
+
+	var/mob/living/user = usr
+	if(!istype(user))
+		return
+
+	var/list/driver_list = get_occupants_in_position("driver")
+	var/is_driver = FALSE
+	for(var/mob/driver in driver_list)
+		if(user == driver)
+			is_driver = TRUE
+			break
+	if(!is_driver)
+		to_chat(user,"<span class = 'notice'>You need to be the driver to do that.</span>")
+		return
+
+	toggle_brakes(user)
+
+/obj/vehicles/proc/toggle_brakes(var/mob/toggler)
+	var/message = ""
+	switch(braking_mode)
+		if(0)
+			braking_mode = 1
+			drag *= 3
+			message = "Braking system enabled."
+		if(1)
+			braking_mode = 0
+			drag = initial(drag)
+			message = "Braking system disabled."
+		if(-1)
+			message = "Enable brake safeties first."
+
+	if(toggler)
+		to_chat(toggler,"<span class = 'notice'>[message]</span>")
+
+/obj/vehicles/verb/verb_toggle_brake_safeties()
+	set name = "Toggle Brake Safeties"
+	set category = "Vehicle"
+	set src in view(1)
+
+	var/mob/living/user = usr
+	if(!istype(user))
+		return
+
+	var/list/driver_list = get_occupants_in_position("driver")
+	var/is_driver = FALSE
+	for(var/mob/driver in driver_list)
+		if(user == driver)
+			is_driver = TRUE
+			break
+	if(!is_driver)
+		to_chat(user,"<span class = 'notice'>You need to be the driver to do that.</span>")
+		return
+
+	toggle_brake_safeties(user)
+
+/obj/vehicles/proc/toggle_brake_safeties(var/mob/toggler)
+	var/message = ""
+	switch(braking_mode)
+		if(0)
+			braking_mode = -1
+			drag /= 2
+			message = "Braking system safeties disabled."
+		if(-1)
+			braking_mode = 0
+			drag = initial(drag)
+			message = "Braking system safeties enabled."
+		if(1)
+			message = "Disable the brakes first."
+
+	if(toggler)
+		to_chat(toggler,"<span class = 'notice'>[message]</span>")
+
+/obj/vehicles/Move(var/newloc,var/newdir)
+	if(abs(speed[1]) > abs(speed[2]))
+		if(speed[1] > 0)
+			newdir = EAST
+		else
+			newdir = WEST
+	else
+		if(speed[2] > 0)
+			newdir = NORTH
+		else
+			newdir = SOUTH
 	if(anchored)
 		anchored = 0
 		. = ..()
@@ -169,155 +327,59 @@
 		. = ..()
 	update_object_sprites()
 
-/obj/vehicles/proc/get_occupants_in_position(var/position = null)
-	var/list/to_return = list()
-	for(var/mob/occupant in occupants)
-		if(occupants[occupant] == position)
-			to_return += occupant
-	return to_return
-
-/obj/vehicles/proc/get_occupant_amount()
-	return (occupants.len - 2)
-
-//Returns null to allow the enter, a string to disallow.
-/obj/vehicles/proc/check_enter_invalid()
-	if(get_occupant_amount() + 1 > (1 + occupants[1] + occupants[2]))
-		return "[src] is full!"
-	return
-
-/obj/vehicles/proc/check_position_blocked(var/position)
-	if(block_enter_exit)
-		return 1
-	var/list/occupants_in_pos = get_occupants_in_position(position)
-	if(position == "passenger" && occupants_in_pos.len + 1 > occupants[1])
-		return 1
-	if(position == "gunner" && occupants_in_pos.len + 1 > occupants[2])
-		return 1
-	if(position == "driver" && occupants_in_pos.len >= 1)
-		return 1
-	return 0
-
-/obj/vehicles/proc/enter_as_position(var/mob/user,var/position = "passenger")
-	if(check_position_blocked(position))
-		to_chat(user,"<span class = 'notice'>No [position] spaces in [src]</span>")
-		return 0
-	var/mob/living/h_test = user
-	if(!istype(h_test) && position == "driver")
-		to_chat(user,"<span class = 'notice'>You don't know how to drive that.</span>") //Let's assume non-living mobs can't drive.
+/obj/vehicles/fall()
+	if(can_traverse_zs && active)
 		return
-	var/can_enter = check_enter_invalid()
-	if(can_enter)
-		to_chat(user,"<span class = 'notice'>[can_enter]</span>")
-		return 0
-	if(user in occupants)
-		if(occupants[user] == position)
-			to_chat(user,"<span class = 'notice'>You're already a [position] of [src]</span>")
-			return 0
-		occupants[user] = position
-		update_object_sprites()
-		return 1
+	. = ..()
 
-	occupants += user
-	occupants[user] = position
-	user.loc = contents
-	contents += user
-	update_object_sprites()
-	update_user_view(user)
-	return 1
-
-/obj/vehicles/proc/do_seat_switch(var/mob/user,var/position)
-	var/list/occ_in_pos = get_occupants_in_position(position)
-	if(!occ_in_pos||occ_in_pos.len == 0)
-		to_chat(user,"<span class = 'notice'>There are no [position] slots in [src]</span>")
-	var/mob/occ_tradewith = pick(occ_in_pos)
-	var/user_position = occupants[user]
-	var/tradewith_response = alert(occ_tradewith,"[user], [user_position] wants to switch seats with you. Accept?",,"Yes","No")
-	if(tradewith_response == "No" || isnull(tradewith_response))
-		to_chat(user,"<span class = 'warning'>[occ_tradewith] denied your seat-switch request.</span>")
-		return
-	occupants[user] = "Awaiting Trade" //Used to allow for debugging if anything goes wrong during seat switch
-	occupants[occ_tradewith] = "Awaiting Trade"
-	enter_as_position(user,position)
-	enter_as_position(occ_tradewith,user_position)
-
-/obj/vehicles/verb/switch_seats()
-	set name = "Switch Seats"
-	set category = "Vehicle"
-	set src in view(1)
-	var/mob/user = usr
-	if(!istype(user) || !is_atom_adjacent(user))
-		return
-	var/position_switchto = input(user,"Enter which position?","Vehicle Position Select","Cancel") in ALL_VEHICLE_POSITIONS + list("Cancel")
-	if(position_switchto == "Cancel")
-		return
-	if(check_position_blocked(position_switchto))
-		do_seat_switch(user,position_switchto)
-		return
+/obj/vehicles/proc/collide_with_obstacle(var/atom/obstacle)
+	if(istype(obstacle,/mob/living))
+		var/mob/living/hit_mob = obstacle
+		playsound(loc,collision_sound,100,0,4)
+		hit_mob.Weaken(1) //No damage for now, let's just knock them over.
 	else
-		enter_as_position(user,position_switchto)
-	update_object_sprites()
+		speed[1] = 0
+		speed[2] = 0
+	visible_message("<span class = 'notice'>[src] collides wth [obstacle]</span>")
 
-/obj/vehicles/verb/verb_exit_vehicle()
-	set name = "Exit Vehicle"
-	set category = "Vehicle"
-	set src in view(1)
+/obj/vehicles/Bump(var/atom/obstacle)
+	..()
+	. = collide_with_obstacle(obstacle)
 
-	var/mob/user = usr
-
-	exit_vehicle(user)
-
-/obj/vehicles/proc/exit_vehicle(var/mob/user,var/ignore_incap_check = 0)
-
-	if(!(user in occupants) || !is_atom_adjacent(user))
-		return
-	if(user.incapacitated() && !ignore_incap_check)
-		return
-	var/loc_moveto = pick_valid_exit_loc()
-	if(isnull(loc_moveto))
-		to_chat(user,"<span class = 'notice'>There is no valid location to exit at.</span>")
-		return
-	occupants -= user
-	contents -= user
-	user.forceMove(loc_moveto)
-	update_object_sprites()
-	update_user_view(user,1)
-
-/obj/vehicles/verb/enter_vehicle()
-	set name = "Enter Vehicle"
-	set category = "Vehicle"
-	set src in view(1)
-
-	var/mob/living/user = usr
-	if(!istype(user) || !is_atom_adjacent(user) || user.incapacitated())
-		return
-	var/player_pos_choice = input(user,"Enter which position?","Vehicle Entry Position Select","Cancel") in ALL_VEHICLE_POSITIONS + list("Cancel")
-	if(player_pos_choice == "Cancel")
-		return
+/obj/vehicles/proc/movement_loop(var/speed_index_target = 1)
+	set background = 1
+	switch(speed_index_target)
+		if(1)
+			moving_x = 1
+		if(2)
+			moving_y = 1
+	while (speed[speed_index_target] != 0)
+		sleep(max(min_speed - ((abs(speed[1]) + abs(speed[2])/2)),max_speed)) //Our delay is the average of both.
+		if(speed[speed_index_target] > 0)
+			switch(speed_index_target)
+				if(1)
+					. = Move(get_step(loc,EAST),EAST)
+				if(2)
+					. = Move(get_step(loc,NORTH),NORTH)
+		else
+			switch(speed_index_target)
+				if(1)
+					. = Move(get_step(loc,WEST),WEST)
+				if(2)
+					. = Move(get_step(loc,SOUTH),SOUTH)
+		if(last_moved_axis != speed_index_target)
+			if(speed[speed_index_target] > 0)
+				speed[speed_index_target] = max(speed[speed_index_target] - drag,0)
+			else
+				speed[speed_index_target] = min(speed[speed_index_target] + drag,0)
+		if(world.time >= next_move_input_at)
+			last_moved_axis = 0
+		if(move_sound)
+			playsound(loc,move_sound,75,0,4)
+	if(speed_index_target == 1)
+		moving_x = 0
 	else
-		enter_as_position(user,player_pos_choice)
-
-/obj/vehicles/proc/damage_occupant(var/position,var/obj/item/P,var/mob/user = null)
-	var/list/occ_list = get_occupants_in_position(position)
-	if(isnull(occ_list) || !occ_list.len)
-		return 1
-	var/mob/mob_to_hit = pick(occ_list)
-	if(isnull(mob_to_hit))
-		return 1
-	if(user)
-		mob_to_hit.attackby(P,user)
-		return 0
-	else
-		mob_to_hit.bullet_act(P)
-		return 0
-
-/obj/vehicles/proc/should_damage_occ()
-	for(var/position in exposed_positions)
-		var/hit_chance = exposed_positions[position]
-		if(isnull(hit_chance))
-			continue
-		if(prob(hit_chance))
-			return position
-	return null
+		moving_y = 0
 
 /obj/vehicles/bullet_act(var/obj/item/projectile/P, var/def_zone)
 	var/pos_to_dam = should_damage_occ()
@@ -326,6 +388,8 @@
 		var/list/mobs = list()
 		for(var/mob/m in occupants)
 			mobs += m
+		if(mobs.len == 0)
+			return
 		mob_to_dam = pick(mobs)
 		if(!isnull(mob_to_dam))
 			mob_to_dam.bullet_act(P)
@@ -335,6 +399,7 @@
 		if(!should_continue)
 			return
 	comp_prof.take_component_damage(P.get_structure_damage(),P.damtype)
+	visible_message("<span class = 'danger'>[P] hits [src]!</span>")
 
 /obj/vehicles/ex_act(var/severity)
 	comp_prof.take_comp_explosion_dam(severity)
@@ -344,13 +409,14 @@
 
 //TODO: REIMPLEMENT SPEED BASED MOVEMENT
 /obj/vehicles/relaymove(var/mob/user, var/direction)
+	if(world.time < next_move_input_at)
+		return
 	if(movement_destroyed)
 		to_chat(user,"<span class = 'notice'>[src] is in no state to move!</span>")
 		return
 	if(!active)
 		to_chat(user,"<span class = 'notice'>[src] needs to be active to move!</span>")
 		return
-	var/turf/new_loc = get_step(src.loc,direction)
 	var/list/driver_list = get_occupants_in_position("driver")
 	var/is_driver = FALSE
 	for(var/mob/driver in driver_list)
@@ -359,131 +425,33 @@
 			break
 	if(!is_driver)
 		return
-	Move(new_loc,direction)
-	if(move_sound)
-		playsound(loc,move_sound,75,0,4)
-	user.client.move_delay = world.time + vehicle_move_delay
+	switch(direction)
+		if(NORTH)
+			last_moved_axis = 2
+			speed[2] = min(speed[2] + acceleration,min_speed)
 
-/obj/vehicles/proc/put_cargo_item(var/mob/user,var/obj/O)
-	if(O == src)
-		return
-	var/confirm = alert(user,"Place [O.name] into [src.name]'s storage?",,"Yes","No")
-	if(confirm != "Yes" || !is_atom_adjacent(user) || !is_atom_adjacent(O,user.loc))
-		return
-	if(!comp_prof.can_put_cargo(O.w_class,istype(O,/obj/vehicles)))
-		to_chat(user,"<span class = 'notice'>[src.name] is too full to fit [O.name]</span>")
-		return
-	if(!istype(O,/obj/vehicles))
-		user.drop_from_inventory(O)
-	comp_prof.cargo_transfer(O)
+		if(SOUTH)
+			last_moved_axis = 2
+			speed[2] = max(speed[2] - acceleration,-min_speed)
 
-/obj/vehicles/proc/get_adjacent_turfs()
-	var/list/adj_turfs = list()
-	for(var/turf/t in locs)
-		adj_turfs += range(1,t)
-	return adj_turfs
+		if(EAST)
+			last_moved_axis = 1
+			speed[1] = min(speed[1] + acceleration,min_speed)
 
-/obj/vehicles/proc/vehicle_loading_adjacent(var/obj/vehicle,var/list/adj_turfs)
-	for(var/loc in vehicle.locs)
-		if(loc in adj_turfs)
-			return 1
-	return 0
+		if(WEST)
+			last_moved_axis = 1
+			speed[1] = max(speed[1] - acceleration,-min_speed)
+	if(braking_mode == 1) //If we're braking, we don't get the leeway in movement.
+		last_moved_axis = 0
 
-/obj/vehicles/proc/load_vehicle(var/obj/vehicles/v,var/mob/user)
-	var/list/adj_turfs = get_adjacent_turfs()
-	if(!(user.loc in adj_turfs) || !vehicle_loading_adjacent(v,adj_turfs))
-		to_chat(user,"<span class = 'notice'>Both the vehicle and the person loading the vehicle must be next to the targeted storage vehicle.</span>")
-		return
-	if(!comp_prof.can_attach_vehicle(v.vehicle_size))
-		to_chat(user,"<span class = 'notice'>[src] is full or cannot fit vehicles of [v]'s size.</span>")
-		return
-	user.visible_message("<span class = 'notice'>[user] starts loading [v] into [src]\'s storage.</span>")
-	if(!do_after(user,VEHICLE_ITEM_LOAD,v))
-		return
-	user.visible_message("<span class = 'notice'>[user] loads [v] into [src].</span>")
-	v.forceMove(pick(src.locs))
-	comp_prof.cargo_transfer(v)
 
-/obj/vehicles/MouseDrop(var/obj/over_object)
-	var/mob/living/user = usr
-	var/obj/vehicles/v = over_object
-	if(isnull(user.loc)) return 0
-	if(istype(v))
-		load_vehicle(v,user)
-	else
-		var/item_size_use = over_object.w_class
-		if(istype(over_object,/obj/structure/closet))
-			item_size_use = ITEM_SIZE_GARGANTUAN
-		if(!comp_prof.can_put_cargo(item_size_use))
-			to_chat(user,"<span class = 'notice'>[src] is full or cannot fit objects of [over_object]'s size.</span>")
-			return
-		if(!do_after(user,VEHICLE_ITEM_LOAD,over_object))
-			return
-		user.visible_message("<span class = 'notice'>[user] loads [over_object] into [src].</span>")
-		over_object.forceMove(pick(src.locs))
-		comp_prof.cargo_transfer(over_object)
-
-/obj/vehicles/verb/get_cargo_item()
-	set name = "Retrieve Cargo"
-	set category = "Vehicle"
-	set src in view(1)
-
-	var/mob/living/user = usr
-	if(!istype(user) || user.incapacitated())
-		return
-
-	var/list/cargo_list_names = list()
-	for(var/obj/item in comp_prof.current_cargo)
-		cargo_list_names += comp_prof.current_cargo[item.name]
-		cargo_list_names[item.name] = item
-	if(isnull(cargo_list_names) || !cargo_list_names.len)
-		to_chat(user,"<span class = 'notice'>[src.name]'s cargo hold is empty!</span>")
-		return
-	var/item_name_remove = input(user,"Pick an item to remove","Item removal selection","Cancel") in cargo_list_names + list("Cancel")
-	if(item_name_remove == "Cancel")
-		return
-	var/obj/object_removed = comp_prof.cargo_transfer(cargo_list_names[item_name_remove],1)
-	var/mob/living/carbon/human/H = user
-	if(istype(object_removed) && istype(H))
-		H.put_in_hands(object_removed)
-
-/obj/vehicles/proc/handle_grab_attack(var/obj/item/grab/I, var/mob/user)
-	var/mob/living/grabbed_mob = I.affecting
-	var/mob/living/carbon/human/h = user
-	if(!istype(grabbed_mob) || !istype(h) || !is_atom_adjacent(grabbed_mob,h.loc) || !is_atom_adjacent(h))
-		return
-	if(grabbed_mob.stat == CONSCIOUS)
-		if(!do_after(user, VEHICLE_LOAD_DELAY,grabbed_mob,1,1,,1))
-			return
-	var/enter_result = enter_as_position(grabbed_mob,"passenger")
-	h.drop_from_inventory(I)
-	if(enter_result == 0)
-		to_chat(user,"<span class = 'notice'>Something stops you putting [grabbed_mob] in [src.name]'s passenger seat.</span>")
-	return
-
-/obj/vehicles/verb/pull_occupant_out()
-	set name = "Remove Occupant"
-	set category = "Vehicle"
-	set src in view(1)
-
-	var/mob/living/puller = usr
-	if(!istype(puller) || puller.incapacitated())
-		return
-
-	var/list/all_viable_occupants = list()
-	for(var/mob/occ in occupants)
-		all_viable_occupants += "[occ.name]"
-		all_viable_occupants["[occ.name]"] = occ
-	var/chosen_occ_name = input(puller,,"Occupant Removal Selection","Cancel") in all_viable_occupants + list("Cancel")
-	if(chosen_occ_name == "Cancel")
-		return
-	var/mob/chosen_occ = all_viable_occupants[chosen_occ_name]
-	if(isnull(chosen_occ) || !is_atom_adjacent(puller))
-		return
-	if(chosen_occ.stat == CONSCIOUS)
-		if(!do_after(puller, VEHICLE_LOAD_DELAY*2,src,1,1,,1))
-			return
-	exit_vehicle(chosen_occ,1)
+	if(speed[1] != 0 && !moving_x)
+		spawn()
+			movement_loop(1)
+	else if(speed[2] != 0 && !moving_y)
+		spawn()
+			movement_loop(2)
+	next_move_input_at = world.time + acceleration
 
 /obj/vehicles/verb/verb_inspect_components()
 	set name = "Inspect Components"
@@ -495,6 +463,21 @@
 		return
 
 	comp_prof.inspect_components(user)
+
+/obj/vehicles/attack_hand(var/mob/user)
+	if(user.a_intent != "harm")
+		if(spawn_datum && spawn_datum.is_spawn_active == 1)
+			spawn_datum.handle_requisition(user,src)
+		else
+			if(!enter_as_position(user,"driver"))
+				if(!enter_as_position(user,"gunner"))
+					enter_as_position(user,"passenger")
+	else
+		. = ..()
+
+/obj/vehicles/attack_ghost(var/mob/observer/ghost/user)
+	if(spawn_datum && spawn_datum.is_spawn_active)
+		spawn_datum.handle_spawn(user,src)
 
 /obj/vehicles/attackby(var/obj/item/I,var/mob/user)
 	if(elevation > user.elevation || elevation > I.elevation)
@@ -521,6 +504,3 @@
 		comp_prof.take_component_damage(I.force,I.damtype)
 		return
 	put_cargo_item(user,I)
-
-#undef ALL_VEHICLE_POSITIONS
-#undef VEHICLE_LOAD_DELAY

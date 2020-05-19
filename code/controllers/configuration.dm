@@ -22,6 +22,7 @@ var/list/gamemode_cache = list()
 	var/log_hrefs = 0					// logs all links clicked in-game. Could be used for debugging and tracking down exploits
 	var/log_runtime = 0					// logs world.log to a file
 	var/log_world_output = 0			// log world.log << messages
+	var/ignore_npc_chatter = 1			// ignore talk or or emotes from mobs without a client
 	var/sql_enabled = 1					// for sql switching
 	var/allow_admin_ooccolor = 0		// Allows admins with relevant permissions to have their own ooc colour
 	var/allow_vote_restart = 0 			// allow votes to restart
@@ -57,7 +58,7 @@ var/list/gamemode_cache = list()
 	var/list/votable_modes = list()		// votable modes
 	var/list/probabilities = list()		// relative probability of each mode
 	var/humans_need_surnames = 0
-	var/allow_random_events = 0			// enables random events mid-round when set to 1
+	var/allow_random_events = 1			// enables random events mid-round when set to 1
 	var/allow_ai = 1					// allow ai job
 	var/hostedby = null
 	var/respawn_delay = 10
@@ -155,6 +156,7 @@ var/list/gamemode_cache = list()
 	var/ban_legacy_system = 0	//Defines whether the server uses the legacy banning system with the files in /data or the SQL system. Config option in config.txt
 	var/use_age_restriction_for_jobs = 0   //Do jobs use account age restrictions?   --requires database
 	var/use_age_restriction_for_antags = 0 //Do antags use account age restrictions? --requires database
+	var/panic_bunker = 0 //Panic bunker - disallows new connections. Requires database
 
 	var/simultaneous_pm_warning_timeout = 100
 
@@ -166,6 +168,9 @@ var/list/gamemode_cache = list()
 
 	var/comms_password = ""
 	var/ban_comms_password = null
+
+	var/minimum_byond_version
+	var/minimum_byond_build
 
 	var/login_export_addr = null
 
@@ -221,6 +226,7 @@ var/list/gamemode_cache = list()
 
 	var/allow_map_switching = 0 // Whether map switching is allowed
 	var/auto_map_vote = 0 // Automatically call a map vote at end of round and switch to the selected map
+	var/allow_extended_vote = 1
 	var/wait_for_sigusr1_reboot = 0 // Don't allow reboot unless it was caused by SIGUSR1
 
 	var/radiation_decay_rate = 1 //How much radiation is reduced by each tick
@@ -297,6 +303,9 @@ var/list/gamemode_cache = list()
 				if ("use_age_restriction_for_antags")
 					config.use_age_restriction_for_antags = 1
 
+				if ("panic_bunker")
+					config.panic_bunker = 1
+
 				if ("jobs_have_minimal_access")
 					config.jobs_have_minimal_access = 1
 
@@ -311,6 +320,9 @@ var/list/gamemode_cache = list()
 
 				if ("sql_enabled")
 					config.sql_enabled = text2num(value)
+
+				if ("allow_extended_vote")
+					config.allow_extended_vote = text2num(value)
 
 				if ("log_say")
 					config.log_say = 1
@@ -360,6 +372,9 @@ var/list/gamemode_cache = list()
 					if(runtime_diary != newlog)
 						to_world_log("Now logging runtimes to data/logs/runtimes/runtime-[time2text(world.realtime, "YYYY-MM-DD")].log")
 						runtime_diary = newlog
+
+				if ("ignore_npc_chatter")
+					config.ignore_npc_chatter = text2num(value)
 
 				if ("generate_asteroid")
 					config.generate_map = 1
@@ -653,6 +668,12 @@ var/list/gamemode_cache = list()
 
 				if("ban_comms_password")
 					config.ban_comms_password = value
+
+				if("minimum_byond_version")
+					config.minimum_byond_version = value
+
+				if("minimum_byond_build")
+					config.minimum_byond_build = value
 
 				if("login_export_addr")
 					config.login_export_addr = value

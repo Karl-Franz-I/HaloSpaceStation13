@@ -44,18 +44,7 @@
 			return 0
 		return 1
 
-	var/chance = damage
-	if(istype(A, /turf/simulated/wall))
-		var/turf/simulated/wall/W = A
-		chance = round(damage/W.material.integrity*180)
-	else if(istype(A, /obj/machinery/door))
-		var/obj/machinery/door/D = A
-		chance = round(damage/D.maxhealth*180)
-		if(D.glass) chance *= 2
-	else if(istype(A, /obj/structure/girder))
-		chance = 100
-
-	if(prob(chance))
+	if(penetrating > 0)
 		if(A.opacity)
 			//display a message so that people on the other side aren't so confused
 			A.visible_message("<span class='warning'>\The [src] pierces through \the [A]!</span>")
@@ -152,25 +141,26 @@
 /obj/item/projectile/bullet/shotgun
 	name = "slug"
 	fire_sound = 'sound/weapons/gunshot/shotgun.ogg'
-	damage = 55
-	armor_penetration = 20
+	damage = 60
+	armor_penetration = 10
 
 /obj/item/projectile/bullet/shotgun/beanbag		//because beanbags are not bullets
 	name = "beanbag"
 	check_armour = "melee"
 	damage = 20
 	agony = 60
+	armor_penetration = 0
 	embed = 0
 	sharp = 0
 
-//Should do about 80 damage at 1 tile distance (adjacent), and 50 damage at 3 tiles distance.
+//Should do about 160 at pb, 100 after 3 steps, 20 at 7 tiles.
 //Overall less damage than slugs in exchange for more damage at very close range and more embedding
 /obj/item/projectile/bullet/pellet/shotgun
 	name = "shrapnel"
 	fire_sound = 'sound/weapons/gunshot/shotgun.ogg'
 	damage = 20
-	pellets = 12
-	range_step = 1.5
+	pellets = 8
+	range_step = 1
 	spread_step = 15
 
 /* "Rifle" rounds */
